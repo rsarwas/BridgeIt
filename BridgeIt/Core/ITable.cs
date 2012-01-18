@@ -20,32 +20,42 @@ using System.Collections.Generic;
 
 namespace BridgeIt.Core
 {
-	interface ITable
-	{
-		
-		Seat Dealer {get;}
-		Seat Declarer {get;}
-		Seat Dummy {get;}
-		Seat ActivePlayer {get;}
-		Suit Trump {get;}
-		Bid CurrentBid {get;}
-		Bid Contract {get;}
-		Trick CurrentTrick {get;}
-		IEnumerable<Card> CardsOnTheTable {get;}
-		IEnumerable<Call> LastThreeCalls {get;}
-		
-		IEnumerable<Card> GetHand (IPlayer player);
-		
-		Seat SitDown (IPlayer player);
-		
-		void Start (Seat dealer = Seat.South);
-		
-		void Call (IPlayer player, Call call);
-		
-		void Play (IPlayer player, Card card);
-		
-		void Quit (IPlayer player);
-		
-		Seat NextSeat(Seat seat);
-	}
+    interface ITable
+    {
+        Seat Dealer { get; }
+
+        Seat Declarer { get; }
+
+        Seat Dummy { get; }
+
+        Seat ActivePlayer { get; }
+
+        Suit Trump { get; }
+
+        Bid CurrentBid { get; }
+
+        Bid Contract { get; }
+
+        Trick CurrentTrick { get; }
+        
+        IEnumerable<Card> CardsOnTheTable { get; }
+
+        IEnumerable<Call> LastThreeCalls { get; }
+
+
+        
+        IEnumerable<Card> GetHand (IPlayer player);
+
+        Seat SitDown (IPlayer player);
+
+        void Start (Seat dealer = Seat.South);
+
+        void Call (IPlayer player, Call call);
+
+        void Play (IPlayer player, Card card);
+
+        void Quit (IPlayer player);
+
+        Seat NextSeat (Seat seat);
+    }
 }
