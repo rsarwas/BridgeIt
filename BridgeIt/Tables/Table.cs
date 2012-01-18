@@ -101,7 +101,10 @@ decisions about changing state.
 
 using BridgeIt.Core;
 using System;
+using System.Linq;
 using System.Collections.Generic;
+
+//FIXME - add locking
 
 namespace BridgeIt.Tables
 {
@@ -110,45 +113,73 @@ namespace BridgeIt.Tables
 		
 		public static readonly Seat[] Seats = new [] {Seat.South, Seat.West, Seat.North, Seat.East};
 		
-		private Dictionary<Seat,IPlayer> _players = new Dictionary<Seat, IPlayer>(Seats.Length);
-		private Dictionary<IPlayer,Seat> _seats = new Dictionary<IPlayer, Seat>(Seats.Length);
-		private Queue<Seat> _openSeats = new Queue<Seat>(Seats);
-		private Dictionary<IPlayer, Hand> _hands = new Dictionary<IPlayer, Hand>();
-		private int _passCount;
+		private readonly Dictionary<Seat,IPlayer> _players = new Dictionary<Seat, IPlayer>(Seats.Length);
+		private readonly Dictionary<IPlayer,Seat> _seats = new Dictionary<IPlayer, Seat>(Seats.Length);
+        private readonly Dictionary<IPlayer, Hand> _hands = new Dictionary<IPlayer, Hand>(Seats.Length);
+        private readonly Queue<Seat> _openSeats = new Queue<Seat>(Seats);
+        private readonly List<Call> _calls = new List<Call>(4);
+        private readonly List<Trick> _tricks = new List<Trick>(Deck.Size / Seats.Length);
+
 		
 		public Table()
 		{
-			ResetState ();
+			//Todo - isn't this redundant if I am using logical init values
+            ResetState ();
 		}
 
-		//TODO - Consider using an interface or inheritance that the Player references??
-		//     - may be nice if I want to have different tables with different rules ??
-		
-		//What should the value types return when they are "not set"
 		public Seat Dealer {get; private set;}
 		public Seat Declarer {get; private set;}
 		public Seat Dummy {get; private set;}
 		public Seat ActivePlayer {get; private set;}
 		public Suit Trump {get; private set;}
-		public Bid CurrentBid {get; private set;}
 		public Bid Contract {get; private set;}
-		public Trick CurrentTrick { get; private set; }
-		public IEnumerable<Card> CardsOnTheTable { get; private set; }
-		public IEnumerable<Call> LastThreeCalls {get; private set;}
 		//public State? {get; private set;}
 		//public Status? Empty, partially full, full, dealing, bidding, playing
-		
-		private void ResetState()
+
+        public Trick CurrentTrick
+        {
+            get { return _tricks.LastOrDefault(); }
+        }
+
+
+        public Call CurrentCall
+        {
+            get { return _calls.LastOrDefault(); }
+        }
+
+
+        public IEnumerable<Card> CardsOnTheTable
+        {
+            get
+            {
+                var trick = CurrentTrick;
+                if (trick == null)
+                    return new Card[0];
+                return trick.Cards;
+            }
+        }
+
+
+        public IEnumerable<Call> LastThreeCalls
+        {
+            get
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+
+        private void ResetState()
 		{
 			Dealer = Seat.None;
 			Declarer = Seat.None;
 			Dummy = Seat.None;
 			ActivePlayer = Seat.None;
-			//Trump = undefined
-			CurrentBid = null;
-			_passCount = 0;
+			Trump = Suit.None;
+            Contract = null;
+            _calls.Clear();
+            _tricks.Clear();
 			//Contract = undefined bid plus possible double??
-			CurrentTrick = null;
 		}
 		
 		#region Interface Methods that IPlayer is expecting
@@ -161,7 +192,6 @@ namespace BridgeIt.Tables
 
 		public Seat SitDown (IPlayer player)
 		{
-			//FIXME - add locking
 			if (_openSeats.Count == 0)
 				throw new Exception("Table is full");
 			if (_seats.ContainsKey(player))
@@ -179,9 +209,9 @@ namespace BridgeIt.Tables
 			ResetState();
 			Dealer = dealer;
 			ActivePlayer = dealer;
-			OnMatchHasBegun(new Table.MatchHasBegunEventArgs(dealer));
-			OnGameHasBegun(new Table.GameHasBegunEventArgs(dealer));
-			Deck deck = new Deck();
+			OnMatchHasBegun(new MatchHasBegunEventArgs(dealer));
+			OnGameHasBegun(new GameHasBegunEventArgs(dealer));
+			var deck = new Deck();
 			deck.Shuffle();
 			Deal(deck);
 			OnCardsHaveBeenDealt();
@@ -204,7 +234,7 @@ namespace BridgeIt.Tables
 			
 			switch (call.CallType) {
 			case CallType.Pass:
-				_passCount++;
+                _calls.Add(call);
 				break;
 			case CallType.Double:
 			break;
@@ -219,7 +249,7 @@ namespace BridgeIt.Tables
 			}
 			
 			//Add to bid list
-			OnCallHasBeenMade(new Table.CallHasBeenMadeEventArgs(call));
+			OnCallHasBeenMade(new CallHasBeenMadeEventArgs(call));
 			//if four passes, then abort the game and start a new game
 			//
 			//else if three passes with a bid then goto play mode
@@ -240,10 +270,9 @@ namespace BridgeIt.Tables
 				return;
 			
 			Seat seat = _seats[player];
-			RemoveSeat(seat);
+			RemovePlayer(player);
 			OnPlayerHasQuit(new PlayerHasQuitEventArgs(seat));
 			//FIXME - pause or abort the current game
-			return;
 		}
 		
 		public Seat NextSeat (Seat seat)
@@ -264,13 +293,6 @@ namespace BridgeIt.Tables
 			return seat;
 		}
 
-		private void RemoveSeat (Seat seat)
-		{
-			_seats.Remove(_players[seat]);
-			_players.Remove(seat);
-			_openSeats.Enqueue(seat);
-		}
-		
 		private void RemovePlayer (IPlayer player)
 		{
 			Seat seat = _seats[player];
@@ -281,7 +303,7 @@ namespace BridgeIt.Tables
 		
 		private void Deal (Deck deck)
 		{
-			Dictionary<Seat, List<Card>> hands = new Dictionary<Seat, List<Card>>();
+			var hands = new Dictionary<Seat, List<Card>>();
 			foreach (var place in Seats)
 				hands[place] = new List<Card>(Hand.MaxSize);
 			
@@ -297,7 +319,7 @@ namespace BridgeIt.Tables
 		#region Events
 
 		#region PlayerHasJoined Event
-		public class PlayerHasJoinedEventArgs : System.EventArgs
+		public class PlayerHasJoinedEventArgs : EventArgs
 		{
 		    public PlayerHasJoinedEventArgs(Seat seat)
 		    {
@@ -318,7 +340,7 @@ namespace BridgeIt.Tables
 		#endregion
 		
 		#region MatchHasBegun Event
-		public class MatchHasBegunEventArgs : System.EventArgs
+		public class MatchHasBegunEventArgs : EventArgs
 		{
 		    public MatchHasBegunEventArgs(Seat dealer)
 		    {
@@ -339,7 +361,7 @@ namespace BridgeIt.Tables
 		#endregion
 		
 		#region GameHasBegun Event
-		public class GameHasBegunEventArgs : System.EventArgs
+		public class GameHasBegunEventArgs : EventArgs
 		{
 		    public GameHasBegunEventArgs(Seat dealer)
 		    {
@@ -371,7 +393,7 @@ namespace BridgeIt.Tables
 		#endregion
 		
 		#region CallHasBeenMade Event
-		public class CallHasBeenMadeEventArgs : System.EventArgs
+		public class CallHasBeenMadeEventArgs : EventArgs
 		{
 			public CallHasBeenMadeEventArgs(Call call)
 			{
@@ -392,7 +414,7 @@ namespace BridgeIt.Tables
 		#endregion
 		
 		#region BiddingIsComplete Event
-		public class BiddingIsCompleteEventArgs : System.EventArgs
+		public class BiddingIsCompleteEventArgs : EventArgs
 		{
 			public BiddingIsCompleteEventArgs(Seat seat, Bid contract)
 			{
@@ -415,7 +437,7 @@ namespace BridgeIt.Tables
 		#endregion
 		
 		#region CardHasBeenPlayed Event
-		public class CardHasBeenPlayedEventArgs : System.EventArgs
+		public class CardHasBeenPlayedEventArgs : EventArgs
 		{
 			public CardHasBeenPlayedEventArgs(Seat player, Card card)
 			{
@@ -438,7 +460,7 @@ namespace BridgeIt.Tables
 		#endregion
 		
 		#region TrickHasBeenWon Event
-		public class TrickHasBeenWonEventArgs : System.EventArgs
+		public class TrickHasBeenWonEventArgs : EventArgs
 		{
 			public TrickHasBeenWonEventArgs(Seat player, Trick trick)
 			{
@@ -461,7 +483,7 @@ namespace BridgeIt.Tables
 		#endregion
 		
 		#region PlayerHasQuit Event
-		public class PlayerHasQuitEventArgs : System.EventArgs
+		public class PlayerHasQuitEventArgs : EventArgs
 		{
 		    public PlayerHasQuitEventArgs(Seat player)
 		    {
@@ -482,7 +504,7 @@ namespace BridgeIt.Tables
 		#endregion
 		
 		#region GameHasBeenWon Event
-		public class GameHasBeenWonEventArgs : System.EventArgs
+		public class GameHasBeenWonEventArgs : EventArgs
 		{
 			public GameHasBeenWonEventArgs(Team team, Score score)
 			{
@@ -505,7 +527,7 @@ namespace BridgeIt.Tables
 		#endregion
 		
 		#region MatchHasBeenWon Event
-		public class MatchHasBeenWonEventArgs : System.EventArgs
+		public class MatchHasBeenWonEventArgs : EventArgs
 		{
 			public MatchHasBeenWonEventArgs(Team team, Score score)
 			{

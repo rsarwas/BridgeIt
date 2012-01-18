@@ -52,6 +52,8 @@ using BridgeIt.Core;
 using System;
 using System.IO;
 
+//FIXME - allow for q (quit) and ?/h (help) at all request for input
+
 namespace BridgeIt.Players
 {
 	public class ConsolePlayer : IPlayer
@@ -93,7 +95,6 @@ namespace BridgeIt.Players
 			_table = table;
 			SignupForMessages(table);
 			_seat = table.SitDown(this);
-			return;
 		}
 		
 		private void Leave (Table table)
@@ -174,14 +175,13 @@ namespace BridgeIt.Players
 				throw new InvalidOperationException("You must join a table before playing a card.");
 			
 			Out.WriteLine("{1}: Your hand is {0}", _table.GetHand(this).PrintFormat(), _seat);
-			Card card;
-			bool badCard = true;
+		    bool badCard = true;
 			do
 			{
 				Out.Write("{0}: Enter a card to play :", _seat);
 				try {				
 					
-					card = Card.FromString(In.ReadLine());
+					Card card = Card.FromString(In.ReadLine());
 					_table.Play(this,card);
 					badCard = false;
 				}
@@ -207,13 +207,12 @@ namespace BridgeIt.Players
 				throw new InvalidOperationException("You must join a table before playing a card for dummy.");
 			
 			Out.WriteLine("Dummies hand is {0}", _table.GetHand(dummy));
-			Card card;
-			bool badCard = true;
+		    bool badCard = true;
 			do
 			{
 				Out.WriteLine("Enter a card to play :");
 				try {				
-					card = Card.FromString(In.ReadLine());
+					Card card = Card.FromString(In.ReadLine());
 					_table.Play(dummy,card);
 					badCard = false;
 				}

@@ -15,16 +15,10 @@
 // limitations under the License.
 #endregion
 
-using BridgeIt.Core;
-using System;
-using System.Collections.Generic;
 
 namespace BridgeIt.Tables
 {
 	public class ContractTable : Table
 	{
-		public ContractTable ()
-		{
-		}
 	}
 }

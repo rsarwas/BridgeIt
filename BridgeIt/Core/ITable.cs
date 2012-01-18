@@ -15,7 +15,6 @@
 // limitations under the License.
 #endregion
 
-using System;
 using System.Collections.Generic;
 
 namespace BridgeIt.Core
@@ -32,9 +31,9 @@ namespace BridgeIt.Core
 
         Suit Trump { get; }
 
-        Bid CurrentBid { get; }
+        Call CurrentCall { get; }  //TODO - verify this is being used
 
-        Bid Contract { get; }
+        Bid Contract { get; }  //TODO - Create Contract (bid + double? + vulnerability?)
 
         Trick CurrentTrick { get; }
         

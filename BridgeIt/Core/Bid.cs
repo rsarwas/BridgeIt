@@ -28,18 +28,15 @@ namespace BridgeIt.Core
 		public Bid (int tricks, Suit suit)
 		{
 			if (tricks < 1 || tricks > 7)
-				throw new ArgumentOutOfRangeException ("Number of tricks must in the range 1 to 7");
+				throw new ArgumentOutOfRangeException ("tricks", "Number of tricks must in the range 1 to 7");
 			Tricks = tricks;
 			Suit = suit;
 		}
 		
 		public bool Beats(Bid other)
 		{
-			if (other.Tricks < this.Tricks)
-				return true;
-			if (other.Tricks == this.Tricks && other.Suit < this.Suit)
-				return true;
-			return false;
+			return ((other.Tricks < this.Tricks) ||
+                    (other.Tricks == this.Tricks && other.Suit < this.Suit));
 		}
 		
 		public int Tricks  { get; private set; }

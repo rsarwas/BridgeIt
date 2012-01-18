@@ -24,6 +24,8 @@
 ####################
 *.pidb
 *.userprefs
+*.suo
+*.vs10x
 
 # Logs and databases #
 ######################
@@ -42,6 +44,10 @@ Thumbs.db
 #################
 bin
 obj
+
+# Resharper #
+#############
+_ReSharper.*
 
 # Nunit test results #
 ######################

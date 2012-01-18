@@ -18,10 +18,11 @@
 namespace BridgeIt.Core
 {
 	public enum Suit {
-		None,
-		Spades,
-		Hearts,
+		None = 0,
+		Clubs,
 		Diamonds,
-		Clubs
+		Hearts,
+		Spades,
+        NoTrump,
 	}
 }

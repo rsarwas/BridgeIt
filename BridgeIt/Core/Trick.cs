@@ -17,6 +17,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace BridgeIt.Core
 {
@@ -35,15 +36,6 @@ namespace BridgeIt.Core
 			_players = new List<Seat>(4);
 			Suit = Suit.None;
 		}
-
-//		public Trick Duplicate ()
-//		{
-//			Trick newTrick = new Trick (Trump);
-//			foreach (Card card in cards) {
-//				newTrick.AddCard (card, players [card]);
-//			}
-//			return newTrick;
-//		}
 
 		public void AddCard(Card card, Seat player)
 		{
@@ -114,11 +106,9 @@ namespace BridgeIt.Core
 		
 		override public string ToString()
 		{
-			//FIXME - Create an extension method to better print an enumerable
-			string msg = "[ ";
-			foreach (Card card in Cards)
-				msg = msg + card.ToGlyphString() + ", ";
-			msg = msg + "]";
+			//TODO - use stringbuilder
+            string msg = Cards.Aggregate("[", (current, card) => current + card.ToGlyphString() + ", ");
+		    msg = msg.Substring(0, msg.Length-2) + "]";
 			return msg;
 		}
 	}

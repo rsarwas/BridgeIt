@@ -50,7 +50,7 @@ namespace BridgeIt.Core
 	{
 		public const int MaxSize = 13;
 		
-		private List<Card> _cards = new List<Card>();
+		private readonly List<Card> _cards = new List<Card>();
 		
 		//test arg must not be null, must be cards, must be unique, must be thirteen
 		//must return what was added
@@ -70,7 +70,7 @@ namespace BridgeIt.Core
 		private void Add(Card card)
 		{
 			if (_cards.Contains(card))
-				throw new ArgumentException("The card is already in the hand","card.");
+				throw new ArgumentException("The card is already in the hand","card");
 			if (_cards.Count == MaxSize)
 				throw new InvalidOperationException("Cannot add more than "+MaxSize+" cards to the hand.");
 			_cards.Add(card);
@@ -79,7 +79,7 @@ namespace BridgeIt.Core
 		public void Remove(Card card)
 		{
 			if (!_cards.Contains(card))
-				throw new ArgumentException("The card is not in the hand","card.");
+				throw new ArgumentException("The card is not in the hand","card");
 			_cards.Remove(card);
 		}
 		
