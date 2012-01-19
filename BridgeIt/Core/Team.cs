@@ -18,7 +18,8 @@
 namespace BridgeIt.Core
 {
 	public enum Team {
-		WestEast,
-		NorthSouth
+		None = 0,
+        NorthSouth,
+        WestEast,
 	}
 }

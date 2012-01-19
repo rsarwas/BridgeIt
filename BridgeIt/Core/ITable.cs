@@ -33,7 +33,7 @@ namespace BridgeIt.Core
 
         Call CurrentCall { get; }  //TODO - verify this is being used
 
-        Bid Contract { get; }  //TODO - Create Contract (bid + double? + vulnerability?)
+        Contract Contract { get; }
 
         Trick CurrentTrick { get; }
         

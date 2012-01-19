@@ -38,18 +38,35 @@ namespace BridgeIt.Core
 			return suit == Suit.None;
 		}
 		
-		public static string PrintFormat(this IEnumerable<Card> cards)
-		{
-			var sb = new StringBuilder();
-			foreach (var suit in Deck.Suits)
-			{
-				sb.AppendLine();
-				sb.Append(Card.SuitToGlyph(suit));
-				foreach (var card in cards.Where(c => c.Suit == suit).OrderByDescending<Card,Rank>(c => c.Rank))
-					sb.Append(" " + Card.RankToString(card.Rank));
-			}
-			return sb.ToString();
-		}
+		public static string PrintFormat (this IEnumerable<Card> cards)
+        {
+            var sb = new StringBuilder();
+            foreach (var suit in Deck.Suits)
+            {
+                sb.AppendLine();
+                sb.Append(Card.SuitToGlyph(suit));
+                foreach (var card in cards.Where(c => c.Suit == suit).OrderByDescending<Card,Rank>(c => c.Rank))
+                    sb.Append(" " + Card.RankToString(card.Rank));
+            }
+            return sb.ToString();
+        }
+
+        public static Team GetTeam (this Seat seat)
+        {
+            switch (seat)
+            {
+                case Seat.None:
+                    return Team.None;
+                case Seat.North:
+                case Seat.South:
+                    return Team.NorthSouth;
+                case Seat.East:
+                case Seat.West:
+                    return Team.WestEast;
+                default:
+                    throw new ArgumentException("Seat of '" + seat +"' not recognized.");
+            }
+        }
 	}
 }
 

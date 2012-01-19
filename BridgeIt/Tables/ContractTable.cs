@@ -18,7 +18,10 @@
 
 namespace BridgeIt.Tables
 {
-	public class ContractTable : Table
+    /// <summary>
+    /// Contract Table enforces the international laws of contract bridge.
+    /// </summary>
+    public class ContractTable : Table
 	{
 	}
 }

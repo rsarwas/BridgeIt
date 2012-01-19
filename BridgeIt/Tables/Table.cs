@@ -132,7 +132,7 @@ namespace BridgeIt.Tables
 		public Seat Dummy {get; private set;}
 		public Seat ActivePlayer {get; private set;}
 		public Suit Trump {get; private set;}
-		public Bid Contract {get; private set;}
+		public Contract Contract {get; private set;}
 		//public State? {get; private set;}
 		//public Status? Empty, partially full, full, dealing, bidding, playing
 
@@ -164,7 +164,14 @@ namespace BridgeIt.Tables
         {
             get
             {
-                throw new NotImplementedException();
+                if (_calls.Count <= 3)
+                {
+                    return new List<Call>(_calls);
+                }
+                else
+                {
+                    return _calls.GetRange(_calls.Count - 3, 3);
+                }
             }
         }
 
@@ -218,46 +225,146 @@ namespace BridgeIt.Tables
 			_players[dealer].PlaceBid();
 		}
 
-		public void Call(IPlayer player, Call call)
-		{
-			if (!_seats.ContainsKey(player))
-				throw new Exception("Player is not seated at the table");
+		public void Call (IPlayer player, Call call)
+        {
+            if (!_seats.ContainsKey(player))
+                throw new Exception("Player is not seated at the table");
 			
-			IPlayer expectedPlayer = _players[ActivePlayer];
-			if (player != expectedPlayer)
-				throw new Exception("It is not players turn to make a bid");
+            IPlayer expectedPlayer = _players[ActivePlayer];
+            if (player != expectedPlayer)
+                throw new Exception("It is not players turn to make a bid");
 			
-			if (call == null)
-				throw new ArgumentNullException("call");
-			if (call.Bidder != ActivePlayer)
-				throw new Exception("You cannot make a bid for another player.");
-			
-			switch (call.CallType) {
-			case CallType.Pass:
-                _calls.Add(call);
-				break;
-			case CallType.Double:
-			break;
-			case CallType.ReDouble:
-			break;
-			case CallType.Bid:
-				//if (call
-				
-				break;
-			default:
-				throw new ArgumentException("CallType '"+call.CallType+"' not supported.");
-			}
-			
-			//Add to bid list
-			OnCallHasBeenMade(new CallHasBeenMadeEventArgs(call));
-			//if four passes, then abort the game and start a new game
-			//
-			//else if three passes with a bid then goto play mode
-			//else get next bid
-			ActivePlayer = NextSeat(ActivePlayer);
-			_players[ActivePlayer].PlaceBid();
-		}
-		
+            if (call == null)
+                throw new ArgumentNullException("call");
+            if (call.Bidder != ActivePlayer)
+                throw new Exception("You cannot make a bid for another player.");
+
+            if (!IsCallLegal(call))
+            {
+                switch (call.CallType)
+                {
+                    case CallType.ReDouble:
+                        throw new CallException("Cannot redouble without a prior bid having been doubled by opponent.");
+                    case CallType.Double:
+                        throw new CallException("Cannot double without a prior bid by opponent.");
+                    case CallType.Bid:
+                        throw new CallException("New bid must be higher than previous bid.");
+                    case CallType.Pass:
+                        throw new Exception("WTF. A pass call is always legal.");
+                    default:
+                        throw new ArgumentException("Call type '" + call.CallType + "' not recognized.");
+                }
+            }
+            //Call is legal
+            _calls.Add(call);
+            OnCallHasBeenMade(new CallHasBeenMadeEventArgs(call));
+
+            //If the first four calls are all pass then abort
+            if (_calls.Count == 4 && _calls.Count(c => c.CallType == CallType.Pass) == 4)
+            {
+                Abort();
+                return;
+            }
+
+            if (call.CallType == CallType.Bid)
+            {
+                _lastBid = call.Bid;
+                _doubles = 0;
+            }
+            if (call.CallType == CallType.Double)
+                _doubles = 1;
+            if (call.CallType == CallType.ReDouble)
+                _doubles = 2;
+
+            //else if three passes with a bid then goto play mode
+            //Even with a maximum bid (7NT), we need to wait for 3 passes, due to potential for doubling
+            if (_lastBid != null &&
+                LastThreeCalls.Count(c => c.CallType == CallType.Pass) == 3)
+            {
+                Contract = new Contract(_lastBid, _doubles);
+                Declarer = GetDeclarer();
+                ActivePlayer = NextSeat(Declarer);
+                Dummy = NextSeat(ActivePlayer);
+                PlayMode();
+                return;
+            }
+
+            //else get next bid
+            ActivePlayer = NextSeat(ActivePlayer);
+            _players[ActivePlayer].PlaceBid();
+        }
+
+        private Seat GetDeclarer ()
+        {
+            //Use _calls and winning Bid to determine the Declarer
+            Suit winningSuit = Contract.Bid.Suit;
+            Team winningTeam = Declarer.GetTeam();
+            Call firstCallInWinningSuitByWinningTeam = _calls.First(c => c.CallType == CallType.Bid && c.Bid.Suit == winningSuit && c.Bidder.GetTeam() == winningTeam);
+            return firstCallInWinningSuitByWinningTeam.Bidder;
+        }
+
+        //FIXME - calculate these as needed from _calls; used to maintain state between calls to Call()
+        private Bid _lastBid = null;
+        //Bid lastBid = _calls.LastOrDefault(c => c.CallType == CallType.Bid) ==  null ? null : lastBidCall.Bid;
+        private int _doubles = 0;
+
+        private bool IsCallLegal (Call call)
+        {
+            List<Call> lastThreeCalls = LastThreeCalls.ToList();
+            int countOfCalls = lastThreeCalls.Count;
+
+            switch (call.CallType)
+            {
+                case CallType.ReDouble:
+                    if (countOfCalls < 2)
+                        return false;
+                    if (countOfCalls == 2)
+                    {
+                        return lastThreeCalls[0].CallType == CallType.Bid &&
+                               lastThreeCalls[1].CallType == CallType.Double;
+                    }
+                    //if (countOfCalls > 2)
+                    {
+                        return lastThreeCalls[3].CallType == CallType.Double ||
+                               (lastThreeCalls[0].CallType == CallType.Double &&
+                                lastThreeCalls[1].CallType == CallType.Pass &&
+                                lastThreeCalls[3].CallType == CallType.Pass);
+                    }
+
+                case CallType.Double:
+                    if (countOfCalls < 1)
+                        return false;
+                    if (countOfCalls == 1)
+                    {
+                        return lastThreeCalls[0].CallType == CallType.Bid;
+                    }
+                    if (countOfCalls == 2)
+                    {
+                        return lastThreeCalls[0].CallType == CallType.Bid &&
+                               lastThreeCalls[1].CallType != CallType.Pass;
+                    }
+                    //if (countOfCalls > 2)
+                    {
+                        return lastThreeCalls[3].CallType == CallType.Bid ||
+                               (lastThreeCalls[0].CallType == CallType.Bid &&
+                                lastThreeCalls[1].CallType == CallType.Pass &&
+                                lastThreeCalls[3].CallType == CallType.Pass);
+                    }
+
+                case CallType.Bid:
+                    Call lastBidCall = lastThreeCalls.LastOrDefault(c => c.CallType == CallType.Bid);
+                    Bid lastBid = lastBidCall == null ? null : lastBidCall.Bid;
+                    if (lastBid == null)
+                        return true;
+                    return call.Bid.Beats(lastBid);
+
+                case CallType.Pass:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
 		public void Play (IPlayer player, Card card)
 		{
 			throw new NotImplementedException();
@@ -284,6 +391,18 @@ namespace BridgeIt.Tables
 			return seat;
 		}
 		#endregion
+
+        public void Abort ()
+        {
+            throw new NotImplementedException();
+        }
+
+
+        public void PlayMode ()
+        {
+            throw new NotImplementedException();
+        }
+
 
 		private Seat AddPlayer (IPlayer player)
 		{
