@@ -54,6 +54,11 @@ namespace BridgeIt.Core
 				Suit = card.Suit;
 		}
 
+        public bool IsEmpty
+        {
+            get { return _cards.Count == 0; }
+        }
+
 		public bool Done
 		{
 			get { return _cards.Count == 4; }

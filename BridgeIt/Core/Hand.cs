@@ -82,7 +82,12 @@ namespace BridgeIt.Core
 				throw new ArgumentException("The card is not in the hand","card");
 			_cards.Remove(card);
 		}
-		
+
+        public bool VoidOfSuit (Suit suit)
+        {
+            return !_cards.Any(c => c.Suit == suit);
+        }
+        
 		public int Count { get {return _cards.Count; }}
 		
 		public int GetCount(Suit suit)

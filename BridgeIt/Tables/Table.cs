@@ -14,7 +14,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #endregion
- 
 
 /*
 Table Definition
@@ -99,20 +98,39 @@ decisions about changing state.
 
 */
 
+/* Locking Strategy
+   The table maintains several peices of inter-related state, and provides a few public methods
+   for changing that state.  None of the state can be changed except through these public
+   methods. And state provided through properties or return values is either immutable, or
+   a copy.
+   The table needs to assume that it's methods may be called by "independent" players.  These could
+   humans or computers operating in thier own separate world, or AI threads in this application,
+   pondering the next move while the UI is waiting for the human play to make his move.
+   I cannot protect just the writes, because a decision to make allow a write may be based
+   on a reading of the state that may change (by another thread on another public method)
+   between reading and writing.
+   To avoid teasing out the inter-related reads/writes, it is much simpler to wrap all public
+   method in the same lock - the brute force approach.  This should work reasonably well, because
+   none of the methods will take long to complete, and the nature of the play is linear.
+   I.e. If a player wants to play a card, they need to wait for the previous player to play thier cards.
+ */
+
 using BridgeIt.Core;
 using System;
 using System.Linq;
 using System.Collections.Generic;
 
-//FIXME - add locking
+//TODO: Add a timer to periodically poke players when it is there turn to bid/play
 
 namespace BridgeIt.Tables
 {
 	public class Table : ITable
 	{
-		
-		public static readonly Seat[] Seats = new [] {Seat.South, Seat.West, Seat.North, Seat.East};
-		
+
+        public static readonly Seat[] Seats = new [] {Seat.South, Seat.West, Seat.North, Seat.East};
+
+        private readonly object _tableLock = new object();
+
 		private readonly Dictionary<Seat,IPlayer> _players = new Dictionary<Seat, IPlayer>(Seats.Length);
 		private readonly Dictionary<IPlayer,Seat> _seats = new Dictionary<IPlayer, Seat>(Seats.Length);
         private readonly Dictionary<IPlayer, Hand> _hands = new Dictionary<IPlayer, Hand>(Seats.Length);
@@ -123,7 +141,7 @@ namespace BridgeIt.Tables
 		
 		public Table()
 		{
-			//Todo - isn't this redundant if I am using logical init values
+			//TODO - isn't this redundant if I am using logical init values
             ResetState ();
 		}
 
@@ -186,127 +204,213 @@ namespace BridgeIt.Tables
             Contract = null;
             _calls.Clear();
             _tricks.Clear();
-			//Contract = undefined bid plus possible double??
 		}
 		
 		#region Interface Methods that IPlayer is expecting
-  		public IEnumerable<Card> GetHand(IPlayer player)
-		{
-			if (!_seats.ContainsKey(player))
-				throw new Exception("Player is not sitting at this table.");
-			return _hands[player].Cards;
+  		public IEnumerable<Card> GetHand (IPlayer player)
+        {
+            try
+            {
+                return _hands[player].Cards;
+            }
+            catch (KeyNotFoundException ex)
+            {
+                throw new Exception("Player is not sitting at this table.", ex);
+            }
 		}
 
 		public Seat SitDown (IPlayer player)
-		{
-			if (_openSeats.Count == 0)
-				throw new Exception("Table is full");
-			if (_seats.ContainsKey(player))
-				throw new Exception("Player is already seated at the table.");
-			Seat seat = AddPlayer(player);
-			OnPlayerHasJoined(new PlayerHasJoinedEventArgs(seat));
-			return seat;
+        {
+            lock (_tableLock)
+            {
+                if (_openSeats.Count == 0)
+                    throw new Exception("Table is full");
+                if (_seats.ContainsKey(player))
+                    throw new Exception("Player is already seated at the table.");
+                Seat seat = AddPlayer(player);
+                OnPlayerHasJoined(new PlayerHasJoinedEventArgs(seat));
+                return seat;
+            }
 		}
 		
 		public void Start (Seat dealer = Seat.South)
-		{
-			if (_openSeats.Count > 0)
-				throw new Exception("Table is not full");
+        {
+            lock (_tableLock)
+            {
+                if (_openSeats.Count > 0)
+                    throw new Exception("Table is not full");
 			
-			ResetState();
-			Dealer = dealer;
-			ActivePlayer = dealer;
-			OnMatchHasBegun(new MatchHasBegunEventArgs(dealer));
-			OnGameHasBegun(new GameHasBegunEventArgs(dealer));
-			var deck = new Deck();
-			deck.Shuffle();
-			Deal(deck);
-			OnCardsHaveBeenDealt();
-			_players[dealer].PlaceBid();
+                ResetState();
+                Dealer = dealer;
+                ActivePlayer = dealer;
+                OnMatchHasBegun(new MatchHasBegunEventArgs(dealer));
+                OnGameHasBegun(new GameHasBegunEventArgs(dealer));
+                var deck = new Deck();
+                deck.Shuffle();
+                Deal(deck);
+                OnCardsHaveBeenDealt();
+                _players[dealer].PlaceBid();
+            }
 		}
 
-		public void Call (IPlayer player, Call call)
+		public void MakeCall (IPlayer player, Call call)
         {
-            if (!_seats.ContainsKey(player))
-                throw new Exception("Player is not seated at the table");
-			
-            IPlayer expectedPlayer = _players[ActivePlayer];
-            if (player != expectedPlayer)
-                throw new Exception("It is not players turn to make a bid");
-			
-            if (call == null)
-                throw new ArgumentNullException("call");
-            if (call.Bidder != ActivePlayer)
-                throw new Exception("You cannot make a bid for another player.");
-
-            if (!IsCallLegal(call))
+            lock (_tableLock)
             {
-                switch (call.CallType)
+                if (player == null)
+                    throw new ArgumentNullException("player");
+
+                if (call == null)
+                    throw new ArgumentNullException("call");
+
+                if (!_seats.ContainsKey(player))
+                    throw new CallException("Player is not seated at the table");
+			
+                if (player != _players[ActivePlayer])
+                    throw new CallException("It is not players turn to make a bid");
+			
+                if (call.Bidder != ActivePlayer)
+                    throw new CallException("You cannot make a bid for another player.");
+
+                if (Contract != null)
+                    throw new CallException("You cannot bid once a contract has been established.");
+
+                if (!IsCallLegal(call))
                 {
-                    case CallType.ReDouble:
-                        throw new CallException("Cannot redouble without a prior bid having been doubled by opponent.");
-                    case CallType.Double:
-                        throw new CallException("Cannot double without a prior bid by opponent.");
-                    case CallType.Bid:
-                        throw new CallException("New bid must be higher than previous bid.");
-                    case CallType.Pass:
-                        throw new Exception("WTF. A pass call is always legal.");
-                    default:
-                        throw new ArgumentException("Call type '" + call.CallType + "' not recognized.");
+                    switch (call.CallType)
+                    {
+                        case CallType.ReDouble:
+                            throw new CallException("Cannot redouble without a prior bid having been doubled by opponent.");
+                        case CallType.Double:
+                            throw new CallException("Cannot double without a prior bid by opponent.");
+                        case CallType.Bid:
+                            throw new CallException("New bid must be higher than previous bid.");
+                        case CallType.Pass:
+                            throw new Exception("WTF. A pass call is always legal.");
+                        default:
+                            throw new ArgumentException("Call type '" + call.CallType + "' not recognized.");
+                    }
                 }
-            }
-            //Call is legal
-            _calls.Add(call);
-            OnCallHasBeenMade(new CallHasBeenMadeEventArgs(call));
+                //Call is legal
+                _calls.Add(call);
+                OnCallHasBeenMade(new CallHasBeenMadeEventArgs(call));
 
-            //If the first four calls are all pass then abort
-            if (_calls.Count == 4 && _calls.Count(c => c.CallType == CallType.Pass) == 4)
-            {
-                Abort();
-                return;
-            }
+                //If the first four calls are all pass then abort
+                if (_calls.Count == 4 && _calls.Count(c => c.CallType == CallType.Pass) == 4)
+                {
+                    AbortDeal();
+                    return;
+                }
 
-            if (call.CallType == CallType.Bid)
-            {
-                _lastBid = call.Bid;
-                _doubles = 0;
-            }
-            if (call.CallType == CallType.Double)
-                _doubles = 1;
-            if (call.CallType == CallType.ReDouble)
-                _doubles = 2;
+                //else if three passes with a bid then goto play mode
+                //Even with a maximum bid (7NT), we need to wait for 3 passes, due to potential for doubling
+                Call lastBidCall = _calls.LastOrDefault(c => c.CallType == CallType.Bid);
+                if (lastBidCall != null && LastThreeCalls.Count(c => c.CallType == CallType.Pass) == 3)
+                {
+                    EnterPlayPhase();
+                    return;
+                }
 
-            //else if three passes with a bid then goto play mode
-            //Even with a maximum bid (7NT), we need to wait for 3 passes, due to potential for doubling
-            if (_lastBid != null &&
-                LastThreeCalls.Count(c => c.CallType == CallType.Pass) == 3)
-            {
-                Contract = new Contract(_lastBid, _doubles);
-                Declarer = GetDeclarer();
-                ActivePlayer = NextSeat(Declarer);
-                Dummy = NextSeat(ActivePlayer);
-                PlayMode();
-                return;
+                //We aren't done yet, request the next bid
+                ActivePlayer = NextSeat(ActivePlayer);
+                _players[ActivePlayer].PlaceBid();
             }
-
-            //else get next bid
-            ActivePlayer = NextSeat(ActivePlayer);
-            _players[ActivePlayer].PlaceBid();
         }
+
+
+        private int GetDoubles ()
+        {
+            foreach (Call call in _calls.Reverse<Call>())
+            {
+                if (call.CallType == CallType.ReDouble)
+                    return 2;
+                if (call.CallType == CallType.Double)
+                    return 1;
+                if (call.CallType == CallType.Bid)
+                    return 0;
+            }
+            return 0;
+        }
+
 
         private Seat GetDeclarer ()
         {
-            //Use _calls and winning Bid to determine the Declarer
             Suit winningSuit = Contract.Bid.Suit;
             Team winningTeam = Declarer.GetTeam();
             Call firstCallInWinningSuitByWinningTeam = _calls.First(c => c.CallType == CallType.Bid && c.Bid.Suit == winningSuit && c.Bidder.GetTeam() == winningTeam);
             return firstCallInWinningSuitByWinningTeam.Bidder;
         }
 
-        //FIXME - calculate these as needed from _calls; used to maintain state between calls to Call()
-        private Bid _lastBid = null;
-        //Bid lastBid = _calls.LastOrDefault(c => c.CallType == CallType.Bid) ==  null ? null : lastBidCall.Bid;
-        private int _doubles = 0;
+
+		public void PlayCard (IPlayer player, Card card)
+        {
+            lock (_tableLock)
+            {
+                if (!_seats.ContainsKey(player))
+                    throw new PlayException("Player is not seated at the table");
+
+                if (player != _players[ActivePlayer])
+                    throw new PlayException("It is not your turn to play a card");
+
+                if (Contract == null || CurrentTrick == null)
+                    throw new PlayException("You cannot play a card until bidding is done");
+
+                Hand hand = _hands[player];
+                if (hand.Count == 0)
+                    throw new PlayException("You have no cards to play");
+
+                if (!hand.Contains(card))
+                    throw new PlayException("The " + card + " is not yours to play");
+
+                if (!IsPlayLegal(_hands[player], card))
+                    throw new PlayException("You must play a" + CurrentTrick.Suit);
+
+                //check if current trick is full??
+                //Assert(!CurrentTrick.Done);
+
+                Seat seat = _seats[player];
+                CurrentTrick.AddCard(card, seat);
+
+                if (CurrentTrick.Done)
+                {
+                    OnTrickHasBeenWon(new Table.TrickHasBeenWonEventArgs(CurrentTrick.Winner, CurrentTrick));
+                    if (_tricks.Count == 13)
+                    {
+                        FinishGame();
+                        return;
+                    }
+                    ActivePlayer = CurrentTrick.Winner;
+                    _tricks.Add(new Trick(Trump));
+                    _players[ActivePlayer].Play();
+                    return;
+                }
+
+                //We aren't done yet, request the next card
+                ActivePlayer = NextSeat(ActivePlayer);
+                if (ActivePlayer == Dummy)
+                    _players[Declarer].PlayForDummy(_players[Dummy]);
+                else
+                    _players[ActivePlayer].Play();
+            }
+        }
+
+		public void Quit (IPlayer player)
+        {
+            lock (_tableLock)
+            {
+                //ignore players who are not at the table
+                if (!_seats.ContainsKey(player))
+                    return;
+			
+                Seat seat = _seats[player];
+                RemovePlayer(player);
+                OnPlayerHasQuit(new PlayerHasQuitEventArgs(seat));
+                //FIXME - pause or abort the current game
+                AbortGame ();
+            }
+		}
+		
+		#endregion
 
         private bool IsCallLegal (Call call)
         {
@@ -323,13 +427,11 @@ namespace BridgeIt.Tables
                         return lastThreeCalls[0].CallType == CallType.Bid &&
                                lastThreeCalls[1].CallType == CallType.Double;
                     }
-                    //if (countOfCalls > 2)
-                    {
-                        return lastThreeCalls[3].CallType == CallType.Double ||
-                               (lastThreeCalls[0].CallType == CallType.Double &&
-                                lastThreeCalls[1].CallType == CallType.Pass &&
-                                lastThreeCalls[3].CallType == CallType.Pass);
-                    }
+                    // countOfCalls > 2
+                    return lastThreeCalls[3].CallType == CallType.Double ||
+                           (lastThreeCalls[0].CallType == CallType.Double &&
+                            lastThreeCalls[1].CallType == CallType.Pass &&
+                            lastThreeCalls[3].CallType == CallType.Pass);
 
                 case CallType.Double:
                     if (countOfCalls < 1)
@@ -343,64 +445,76 @@ namespace BridgeIt.Tables
                         return lastThreeCalls[0].CallType == CallType.Bid &&
                                lastThreeCalls[1].CallType != CallType.Pass;
                     }
-                    //if (countOfCalls > 2)
-                    {
-                        return lastThreeCalls[3].CallType == CallType.Bid ||
-                               (lastThreeCalls[0].CallType == CallType.Bid &&
-                                lastThreeCalls[1].CallType == CallType.Pass &&
-                                lastThreeCalls[3].CallType == CallType.Pass);
-                    }
+                    // countOfCalls > 2
+                    return lastThreeCalls[3].CallType == CallType.Bid ||
+                           (lastThreeCalls[0].CallType == CallType.Bid &&
+                            lastThreeCalls[1].CallType == CallType.Pass &&
+                            lastThreeCalls[3].CallType == CallType.Pass);
 
                 case CallType.Bid:
-                    Call lastBidCall = lastThreeCalls.LastOrDefault(c => c.CallType == CallType.Bid);
-                    Bid lastBid = lastBidCall == null ? null : lastBidCall.Bid;
-                    if (lastBid == null)
-                        return true;
-                    return call.Bid.Beats(lastBid);
+                    Call lastBidCall = _calls.LastOrDefault(c => c.CallType == CallType.Bid);
+                    return (lastBidCall == null) ? true : call.Bid.Beats(lastBidCall.Bid);
 
                 case CallType.Pass:
                     return true;
+
                 default:
                     return false;
             }
         }
 
-		public void Play (IPlayer player, Card card)
-		{
-			throw new NotImplementedException();
-		}
 
-		public void Quit (IPlayer player)
-		{
-			//ignore players who are not at the table
-			if (!_seats.ContainsKey(player))
-				return;
-			
-			Seat seat = _seats[player];
-			RemovePlayer(player);
-			OnPlayerHasQuit(new PlayerHasQuitEventArgs(seat));
-			//FIXME - pause or abort the current game
-		}
-		
-		public Seat NextSeat (Seat seat)
-		{
-			//Seat 0 is reserved for the null seat
-			seat++;
-			if ((int)seat > Seats.Length)
-				seat = (Seat)1;
-			return seat;
-		}
-		#endregion
+        private bool IsPlayLegal (Hand hand, Card card)
+        {
+            return CurrentTrick.IsEmpty ||
+                   CurrentTrick.Suit == card.Suit ||
+                   hand.VoidOfSuit(CurrentTrick.Suit);
+        }
 
-        public void Abort ()
+        private static Seat NextSeat (Seat seat)
+        {
+            //Seat 0 is reserved for the null seat
+            seat++;
+            if ((int)seat > Seats.Length)
+                seat = (Seat)1;
+            return seat;
+        }
+
+        private void AbortDeal ()
         {
             throw new NotImplementedException();
         }
 
 
-        public void PlayMode ()
+        private void AbortGame ()
         {
             throw new NotImplementedException();
+        }
+
+        public void FinishGame ()
+        {
+            //Fixme - finish
+            //determine winning team, and score
+            OnGameHasBeenWon(new Table.GameHasBeenWonEventArgs(Team.None, new Score()));
+            OnMatchHasBeenWon(new Table.MatchHasBeenWonEventArgs(Team.None, new Score()));
+            //new deal??
+            ResetState();
+        }
+
+
+        private void EnterPlayPhase ()
+        {
+            Call lastBidCall = _calls.LastOrDefault(c => c.CallType == CallType.Bid);
+            //Assert lastBidCall != null;
+            Contract = new Contract(lastBidCall.Bid, GetDoubles());
+            Declarer = GetDeclarer();
+            Trump = Contract.Bid.Suit;
+            OnBiddingIsComplete(new Table.BiddingIsCompleteEventArgs(Declarer, Contract));
+            ActivePlayer = NextSeat(Declarer);
+            Dummy = NextSeat(ActivePlayer);
+            _calls.Clear();
+            _tricks.Add(new Trick(Trump));
+            _players[ActivePlayer].Play();
         }
 
 
@@ -535,14 +649,14 @@ namespace BridgeIt.Tables
 		#region BiddingIsComplete Event
 		public class BiddingIsCompleteEventArgs : EventArgs
 		{
-			public BiddingIsCompleteEventArgs(Seat seat, Bid contract)
+			public BiddingIsCompleteEventArgs(Seat declarer, Contract contract)
 			{
-				Declarer = seat;
+				Declarer = declarer;
 				Contract = contract;
 			}
 			
 			public Seat Declarer { get; private set; }
-			public Bid Contract { get; private set; }
+			public Contract Contract { get; private set; }
 		}
 
 		public event EventHandler<BiddingIsCompleteEventArgs> BiddingIsComplete;

@@ -153,7 +153,7 @@ namespace BridgeIt.Players
 				Out.Write("{0}: Enter your Bid :", _seat);
 				try {				
 					Call call = Call.FromString(_seat, In.ReadLine());
-					_table.Call(this,call);
+					_table.MakeCall(this,call);
 					badBid = false;
 				}
 				catch (Exception ex) {
@@ -182,7 +182,7 @@ namespace BridgeIt.Players
 				try {				
 					
 					Card card = Card.FromString(In.ReadLine());
-					_table.Play(this,card);
+					_table.PlayCard(this,card);
 					badCard = false;
 				}
 				catch (Exception ex) {
@@ -213,7 +213,7 @@ namespace BridgeIt.Players
 				Out.WriteLine("Enter a card to play :");
 				try {				
 					Card card = Card.FromString(In.ReadLine());
-					_table.Play(dummy,card);
+					_table.PlayCard(dummy,card);
 					badCard = false;
 				}
 				catch (Exception ex) {

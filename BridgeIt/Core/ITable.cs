@@ -31,30 +31,28 @@ namespace BridgeIt.Core
 
         Suit Trump { get; }
 
-        Call CurrentCall { get; }  //TODO - verify this is being used
-
         Contract Contract { get; }
 
+        Call CurrentCall { get; }  //TODO - verify this is being used
+
         Trick CurrentTrick { get; }
-        
-        IEnumerable<Card> CardsOnTheTable { get; }
 
         IEnumerable<Call> LastThreeCalls { get; }
 
 
         
+        void Start (Seat dealer = Seat.South);
+
+
         IEnumerable<Card> GetHand (IPlayer player);
 
         Seat SitDown (IPlayer player);
 
-        void Start (Seat dealer = Seat.South);
+        void MakeCall (IPlayer player, Call call);
 
-        void Call (IPlayer player, Call call);
-
-        void Play (IPlayer player, Card card);
+        void PlayCard (IPlayer player, Card card);
 
         void Quit (IPlayer player);
 
-        Seat NextSeat (Seat seat);
     }
 }
