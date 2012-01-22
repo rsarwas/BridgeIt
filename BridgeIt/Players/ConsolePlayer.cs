@@ -110,33 +110,37 @@ namespace BridgeIt.Players
 		}
 
 		private void SignupForMessages (Table table)
-		{
-			table.BiddingIsComplete += BiddingIsComplete;
-			table.CallHasBeenMade += CallHasBeenMade;
-			table.CardsHaveBeenDealt += CardsHaveBeenDealt;
-			table.GameHasBeenWon += GameHasBeenWon;
-			table.MatchHasBegun += MatchHasBegun;
-			table.GameHasBegun += GameHasBegun;
-			table.MatchHasBeenWon += MatchHasBeenWon;
-			table.PlayerHasJoined += PlayerHasJoined;
-			table.PlayerHasQuit += PlayerHasQuit;
-			table.CardHasBeenPlayed += CardHasBeenPlayed;
-			table.TrickHasBeenWon += TrickHasBeenWon;
-		}
+        {
+            table.BiddingIsComplete += BiddingIsComplete;
+            table.CallHasBeenMade += CallHasBeenMade;
+            table.CardsHaveBeenDealt += CardsHaveBeenDealt;
+            table.DealHasBeenAbandoned += DealHasBeenAbandoned;
+            table.DealHasBeenWon += DealHasBeenWon;
+            table.SessionHasBegun += SessionHasBegun;
+            table.DealHasBegun += DealHasBegun;
+            table.SessionHasEnded += SessionHasEnded;
+            table.PlayerHasJoined += PlayerHasJoined;
+            table.PlayerHasQuit += PlayerHasQuit;
+            table.CardHasBeenPlayed += CardHasBeenPlayed;
+            table.TrickHasBeenWon += TrickHasBeenWon;
+            table.DummyHasExposedHand += DummyHasExposedHand;
+        }
 
 		private void UnsubscribeToMessages (Table table)
 		{
 			table.BiddingIsComplete -= BiddingIsComplete;
 			table.CallHasBeenMade -= CallHasBeenMade;
 			table.CardsHaveBeenDealt -= CardsHaveBeenDealt;
-			table.GameHasBeenWon -= GameHasBeenWon;
-			table.MatchHasBegun -= MatchHasBegun;
-			table.GameHasBegun -= GameHasBegun;
-			table.MatchHasBeenWon -= MatchHasBeenWon;
+            table.DealHasBeenAbandoned += DealHasBeenAbandoned;
+			table.DealHasBeenWon -= DealHasBeenWon;
+			table.SessionHasBegun -= SessionHasBegun;
+			table.DealHasBegun -= DealHasBegun;
+			table.SessionHasEnded -= SessionHasEnded;
 			table.PlayerHasJoined -= PlayerHasJoined;
 			table.PlayerHasQuit -= PlayerHasQuit;
 			table.CardHasBeenPlayed -= CardHasBeenPlayed;
 			table.TrickHasBeenWon -= TrickHasBeenWon;
+            table.DummyHasExposedHand -= DummyHasExposedHand;
 		}
 		#endregion
 		
@@ -157,7 +161,7 @@ namespace BridgeIt.Players
 					badBid = false;
 				}
 				catch (Exception ex) {
-					Out.WriteLine(ex.Message + " Try again.");	
+					Out.WriteLine(ex.Message + "  Try again.");
 				}
 			}
 			while (badBid);
@@ -165,7 +169,7 @@ namespace BridgeIt.Players
 		
 		public void PlaceBidNow(TimeSpan timelimit)
 		{
-			Out.WriteLine("{1}: You have {0} seconds to place your bid, or you will forfeit this game/match and your seat at the table", timelimit.Seconds, _seat);
+			Out.WriteLine("{1}: You have {0} seconds to place your bid, or you will forfeit this hand/game and your seat at the table", timelimit.Seconds, _seat);
 			PlaceBid();
 		}
 		
@@ -186,7 +190,7 @@ namespace BridgeIt.Players
 					badCard = false;
 				}
 				catch (Exception ex) {
-					Out.WriteLine(ex.Message + ", Try again");	
+					Out.WriteLine(ex.Message + "  Try again.");
 				}
 			}
 			while (badCard);
@@ -194,7 +198,7 @@ namespace BridgeIt.Players
 		
 		public void PlayNow(TimeSpan timelimit)
 		{
-			Out.WriteLine("{1}: You have {0} seconds to place your bid, or you will forfeit this game/match and your seat at the table", timelimit.Seconds, _seat);
+			Out.WriteLine("{1}: You have {0} seconds to place your bid, or you will forfeit this hand/game and your seat at the table", timelimit.Seconds, _seat);
 			Play();
 		}
 		
@@ -206,26 +210,26 @@ namespace BridgeIt.Players
 			if (_table == null || _seat == Seat.None)
 				throw new InvalidOperationException("You must join a table before playing a card for dummy.");
 			
-			Out.WriteLine("Dummies hand is {0}", _table.GetHand(dummy));
+			Out.WriteLine("{1}: Dummies hand is {0}", _table.GetHand(dummy).PrintFormat(), _seat);
 		    bool badCard = true;
 			do
 			{
-				Out.WriteLine("Enter a card to play :");
+				Out.Write("Enter a card to play :");
 				try {				
 					Card card = Card.FromString(In.ReadLine());
 					_table.PlayCard(dummy,card);
 					badCard = false;
 				}
 				catch (Exception ex) {
-					Out.WriteLine(ex.Message + ", Try again.");	
+					Out.WriteLine(ex.Message + "  Try again.");
 				}
 			}
-			while (!badCard);
+			while (badCard);
 		}
 		
 		public void PlayForDummyNow(IPlayer dummy, TimeSpan timelimit)
 		{
-			Out.WriteLine("{1}: You have {0} seconds to play for dummy, or you will forfeit this game/match and your seat at the table", timelimit.Seconds, _seat);
+			Out.WriteLine("{1}: You have {0} seconds to play for dummy, or you will forfeit this hand/game and your seat at the table", timelimit.Seconds, _seat);
 			PlayForDummy(dummy);
 		}
 		#endregion
@@ -242,21 +246,26 @@ namespace BridgeIt.Players
 			Out.WriteLine("{1}: A player has joined the game.  Player:{0}", e.Player, _seat);
 		}
 		
-		void MatchHasBegun (object sender, Table.MatchHasBegunEventArgs e)
+		void SessionHasBegun (object sender, Table.SessionHasBegunEventArgs e)
 		{
-			Out.WriteLine("{1}: Match has begun. Dealer:{0}", e.Dealer, _seat);
+			Out.WriteLine("{1}: Session has begun. Dealer:{0}", e.Dealer, _seat);
 		}
 		
-		void GameHasBegun (object sender, Table.GameHasBegunEventArgs e)
+		void DealHasBegun (object sender, Table.DealHasBegunEventArgs e)
 		{
-			Out.WriteLine("{1}: Game has begun. Dealer:{0}", e.Dealer, _seat);
+			Out.WriteLine("{1}: Deal has begun. Dealer:{0}", e.Dealer, _seat);
 		}
 		
-		void CardsHaveBeenDealt (object sender, EventArgs e)
-		{
-			Out.WriteLine("{1}: Cards have been dealt. Hand:{0}", ((Table)sender).GetHand(this).PrintFormat(), _seat);
-		}
-		
+        void CardsHaveBeenDealt (object sender, EventArgs e)
+         {
+             Out.WriteLine("{1}: Cards have been dealt. Hand:{0}", ((Table)sender).GetHand(this).PrintFormat(), _seat);
+         }
+
+        void DealHasBeenAbandoned (object sender, EventArgs e)
+         {
+             Out.WriteLine("{0}: Deal has been Abandoned", _seat);
+         }
+
 		void CallHasBeenMade (object sender, Table.CallHasBeenMadeEventArgs e)
 		{
 			if (e.Call.CallType == CallType.Bid)
@@ -269,25 +278,32 @@ namespace BridgeIt.Players
 		{
 			Out.WriteLine("{2}: Bidding is complete. Declarer:{0}, Contract:{1}", e.Declarer, e.Contract, _seat);
 		}
-		
-		void CardHasBeenPlayed(object sender, Table.CardHasBeenPlayedEventArgs e)
-		{
-			Out.WriteLine("{2}: Card has been played. Player:{0}, Card:{1}", e.Player, e.Card, _seat);
-		}
-		
+
+        void CardHasBeenPlayed (object sender, Table.CardHasBeenPlayedEventArgs e)
+        {
+            Out.WriteLine("{2}: Card has been played. Player:{0}, Card:{1}", e.Player, e.Card, _seat);
+        }
+
+
+        void DummyHasExposedHand (object sender, Table.DummyHasExposedHandEventArgs e)
+        {
+            Out.WriteLine("{1}: Dummies cards have been shown, they are:{0}", e.DummiesCards.PrintFormat(), _seat);
+        }
+
+
 		void TrickHasBeenWon(object sender, Table.TrickHasBeenWonEventArgs e)
 		{
 			Out.WriteLine("{2}: Trick has been won. Winner:{0}, Trick:{1}", e.Winner, e.Trick, _seat);
 		}
 		
-		void GameHasBeenWon (object sender, Table.GameHasBeenWonEventArgs e)
+		void DealHasBeenWon (object sender, Table.DealHasBeenWonEventArgs e)
 		{
-			Out.WriteLine("{2}: Game has been won.  Winning Team:{0}, Score:{1}", e.Winners, e.Score, _seat);
+			Out.WriteLine("{2}: Deal has been won.  Winning Team:{0}, Score:{1}", e.Winners, e.Score, _seat);
 		}
 		
-		void MatchHasBeenWon (object sender, Table.MatchHasBeenWonEventArgs e)
+		void SessionHasEnded (object sender, Table.SessionHasEndedEventArgs e)
 		{
-			Out.WriteLine("{2}: Match has been won.  Winning Team:{0}, Score:{1}", e.Winners, e.Score, _seat);
+			Out.WriteLine("{2}: Session has been won.  Winning Team:{0}, Score:{1}", e.Winners, e.Score, _seat);
 		}
 		
 		void PlayerHasQuit(object sender, Table.PlayerHasQuitEventArgs e)

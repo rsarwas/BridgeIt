@@ -100,7 +100,7 @@ namespace BridgeIt.Core
         {
             return WhoPlayed(GetHighestCard());
         }
-        
+
         public Seat WhoPlayed(Card card)
 		{
 			if (!_cards.Contains(card))

@@ -28,7 +28,7 @@ namespace ConsoleApp
 			Table table = new ContractTable();
             foreach (var seat in Table.Seats)
                 (new ConsolePlayer(Console.In, Console.Out)).JoinTable(table);
-			table.Start();
+			table.StartSession();
 		}
 	}
 }

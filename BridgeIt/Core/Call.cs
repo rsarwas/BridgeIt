@@ -42,11 +42,11 @@ namespace BridgeIt.Core
 		public static Call FromString(Seat bidder, string s)
 		{
 			string lower = s.Trim().ToLower();
-			if (lower == "p" || lower == "pass")
+			if ("pass".StartsWith(lower))
 				return new Call(bidder, CallType.Pass);
-			if (lower == "d" || lower == "double")
+			if ("double".StartsWith(lower))
 				return new Call(bidder, CallType.Double);
-			if (lower == "r" || lower == "redouble")
+			if ("redouble".StartsWith(lower))
 				return new Call(bidder, CallType.Redouble);
 			return new Call(bidder, CallType.Bid, Bid.FromString(s));
 		}

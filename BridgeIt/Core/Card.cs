@@ -32,17 +32,18 @@ namespace BridgeIt.Core
 
 		#region static conversion members
  
-		public static Card FromString(string card)
-		{
-			if (string.IsNullOrEmpty(card))
-				throw new ArgumentException("Card must be written as 'Suit Rank'", "card");
-			string[] parts = card.Split ();
-			if (parts.Length != 2)
-				throw new ArgumentException("Card must be written as 'Suit Rank'", "card");
-			Suit suit = SuitFromString(parts[0]);
-			Rank rank = RankFromString(parts[1]);
-			return new Card(rank, suit);
-		}
+		public static Card FromString (string card)
+        {
+            //Fixme - this should do better
+            if (string.IsNullOrEmpty(card))
+                throw new ArgumentException("Card must be written as 'Rank <space> Suit'", "card");
+            string[] parts = card.Split();
+            if (parts.Length != 2)
+                throw new ArgumentException("Card must be written as 'Rank <space> Suit'", "card");
+            Rank rank = RankFromString(parts[0]);
+            Suit suit = SuitFromString(parts[1]);
+            return new Card(rank, suit);
+        }
 		
 		public static Suit SuitFromString (string suitString)
 		{

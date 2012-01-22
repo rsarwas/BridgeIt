@@ -69,7 +69,7 @@ Key messages a table will send to a player:
     CardHasBeenPlayed => Seat,Card
     TrickHasBeenWon => Player,Trick
     PlayerHasQuit => Seat
-    GameOver => WinningTeam,Score
+    DealOver => WinningTeam,Score
 
 State available to the public (all is readonly)
   Seat Declarer
@@ -149,7 +149,7 @@ namespace BridgeIt.Tables
 		public Table()
 		{
 			//TODO - isn't this redundant if I am using logical init values
-            ResetState ();
+            ResetSession ();
 		}
 
 		public Seat Dealer {get; private set;}
@@ -187,6 +187,17 @@ namespace BridgeIt.Tables
                 if (trick == null)
                     return new Card[0];
                 return trick.Cards;
+            }
+        }
+
+
+        public IEnumerable<Card> DummiesCards
+        {
+            get
+            {
+                if (_tricks.Count > 1 || (_tricks.Count == 1 && CurrentTrick.Cards.Any()))
+                    return _hands[_players[Dummy]].Cards;
+                return new Card[0];
             }
         }
 
@@ -234,25 +245,32 @@ namespace BridgeIt.Tables
             }
 		}
 		
-		public void Start (Seat dealer = Seat.South)
+        public void StartSession (Seat dealer = Seat.South)
         {
             lock (_tableLock)
             {
                 if (_openSeats.Count > 0)
                     throw new Exception("Table is not full");
-			
-                ResetState();
-                Dealer = dealer;
-                ActivePlayer = dealer;
-                OnMatchHasBegun(new MatchHasBegunEventArgs(dealer));
-                OnGameHasBegun(new GameHasBegunEventArgs(dealer));
-                var deck = new Deck();
-                deck.Shuffle();
-                Deal(deck);
-                OnCardsHaveBeenDealt();
-                _players[dealer].PlaceBid();
+
+                //TODO - do we need to send the dealer here?, we send it at the start of the game.
+                //Is there anything else we should announce at the start of a sesssion?
+                OnSessionHasBegun(new SessionHasBegunEventArgs(dealer));
+                StartDeal(dealer);
             }
-		}
+        }
+
+
+        private void StartDeal (Seat dealer)
+        {
+            ResetDeal(dealer);
+            OnDealHasBegun(new DealHasBegunEventArgs(dealer));
+            var deck = new Deck();
+            deck.Shuffle();
+            Deal(deck);
+            OnCardsHaveBeenDealt();
+            _players[dealer].PlaceBid();
+        }
+
 
 		public void MakeCall (IPlayer player, Call call)
         {
@@ -300,7 +318,7 @@ namespace BridgeIt.Tables
                 //If the first four calls are all pass then abort
                 if (_calls.AreLastFourPasses())
                 {
-                    AbortDeal();
+                    AbandonDeal();
                     return;
                 }
 
@@ -324,40 +342,42 @@ namespace BridgeIt.Tables
             lock (_tableLock)
             {
                 if (!_seats.ContainsKey(player))
-                    throw new PlayException("Player is not seated at the table");
+                    throw new PlayException("Player is not seated at the table.");
 
                 if (player != _players[ActivePlayer])
-                    throw new PlayException("It is not your turn to play a card");
+                    throw new PlayException("It is not your turn to play a card.");
 
                 if (Contract == null || CurrentTrick == null)
-                    throw new PlayException("You cannot play a card until bidding is done");
+                    throw new PlayException("You cannot play a card until bidding is done.");
 
                 Hand hand = _hands[player];
                 if (hand.Count == 0)
-                    throw new PlayException("You have no cards to play");
+                    throw new PlayException("You have no cards to play.");
 
                 if (!hand.Contains(card))
-                    throw new PlayException("The " + card + " is not yours to play");
+                    throw new PlayException("The " + card + " is not yours to play.");
 
                 if (!CurrentTrick.IsLegalPlay(card, hand))
                 {
                     if (CurrentTrick.Done)
-                        throw new PlayException("The current trick is finished");
+                        throw new PlayException("The current trick is finished.");
                     else
-                        throw new PlayException("You must play a " + CurrentTrick.Suit);
+                        throw new PlayException(CurrentTrick.Suit + " were lead. You can and must follow suit.");
                 }
 
+                hand.Remove(card);
                 CurrentTrick.AddCard(card, ActivePlayer);
                 OnCardHasBeenPlayed(new Table.CardHasBeenPlayedEventArgs(ActivePlayer, card));
                 if (_tricks.Count == 1 && CurrentTrick.Cards.Count() == 1)
-                    OnDummyHasExposedHand(new Table.DummyHasExposedHandEventArgs(_hands[_players[Dummy]]));
+                    //FIXME - I can't give out a hand, lest people remove cards from it.
+                    OnDummyHasExposedHand(new Table.DummyHasExposedHandEventArgs(_hands[_players[Dummy]].Cards));
 
                 if (CurrentTrick.Done)
                 {
                     OnTrickHasBeenWon(new Table.TrickHasBeenWonEventArgs(CurrentTrick.Winner, CurrentTrick));
                     if (_tricks.Count == 13)
                     {
-                        FinishGame();
+                        FinishDeal();
                     }
                     else
                     {
@@ -390,18 +410,24 @@ namespace BridgeIt.Tables
                 RemovePlayer(player);
                 OnPlayerHasQuit(new PlayerHasQuitEventArgs(seat));
                 //FIXME - pause or abort the current game
-                AbortGame ();
+                AbandonDeal ();
             }
 		}
 		
 		#endregion
 
-        private void ResetState ()
+        private void ResetSession ()
         {
-            Dealer = Seat.None;
+            ResetDeal();
+        }
+
+
+        private void ResetDeal (Seat dealer = Seat.None)
+        {
+            Dealer = dealer;
             Declarer = Seat.None;
             Dummy = Seat.None;
-            ActivePlayer = Seat.None;
+            ActivePlayer = Dealer;
             Trump = Suit.None;
             Contract = null;
             _calls.Clear();
@@ -426,25 +452,37 @@ namespace BridgeIt.Tables
             return seat;
         }
 
-        private void AbortDeal ()
+        private void AbandonDeal ()
         {
-            throw new NotImplementedException();
+            OnDealHasBeenAbandoned();
+            StartDeal(NextSeat(Dealer));
+        }
+
+        private void AbandonSession ()
+        {
+            OnDealHasBeenAbandoned();
+            OnSessionHasEnded(new Table.SessionHasEndedEventArgs(Side.None, new Score()));
+            ResetSession();
         }
 
 
-        private void AbortGame ()
-        {
-            throw new NotImplementedException();
-        }
-
-        private void FinishGame ()
+        private void FinishDeal ()
         {
             //Fixme - finish
             //determine winning team, and score
-            OnGameHasBeenWon(new Table.GameHasBeenWonEventArgs(Side.None, new Score()));
-            OnMatchHasBeenWon(new Table.MatchHasBeenWonEventArgs(Side.None, new Score()));
-            //new deal??
-            ResetState();
+            OnDealHasBeenWon(new Table.DealHasBeenWonEventArgs(Side.None, new Score()));
+            if (true)
+                StartDeal(NextSeat(Dealer));
+            else
+                FinishSession ();
+        }
+
+
+        private void FinishSession ()
+        {
+            //Fixme - finish
+            OnSessionHasEnded(new Table.SessionHasEndedEventArgs(Side.None, new Score()));
+            ResetSession();
         }
 
 
@@ -516,10 +554,10 @@ namespace BridgeIt.Tables
 		}
 		#endregion
 		
-		#region MatchHasBegun Event
-		public class MatchHasBegunEventArgs : EventArgs
+		#region SessionHasBegun Event
+		public class SessionHasBegunEventArgs : EventArgs
 		{
-		    public MatchHasBegunEventArgs(Seat dealer)
+		    public SessionHasBegunEventArgs(Seat dealer)
 		    {
 		        Dealer = dealer;
 		    }
@@ -527,37 +565,39 @@ namespace BridgeIt.Tables
 		    public Seat Dealer { get; private set; }
 		}
 
-		public event EventHandler<MatchHasBegunEventArgs> MatchHasBegun;
+		public event EventHandler<SessionHasBegunEventArgs> SessionHasBegun;
 
-		protected virtual void OnMatchHasBegun(MatchHasBegunEventArgs e)
+		protected virtual void OnSessionHasBegun(SessionHasBegunEventArgs e)
 		{
-			var handler = MatchHasBegun;
+			var handler = SessionHasBegun;
 			if (handler != null)
 			    handler(this, e);
 		}
 		#endregion
 		
-		#region GameHasBegun Event
-		public class GameHasBegunEventArgs : EventArgs
-		{
-		    public GameHasBegunEventArgs(Seat dealer)
-		    {
-		        Dealer = dealer;
-		    }
+        #region DealHasBegun Event
+        public class DealHasBegunEventArgs : EventArgs
+        {
+            public DealHasBegunEventArgs (Seat dealer)
+            {
+                Dealer = dealer;
+            }
 
-		    public Seat Dealer { get; private set; }
-		}
 
-		public event EventHandler<GameHasBegunEventArgs> GameHasBegun;
+            public Seat Dealer { get; private set; }
+        }
 
-		protected virtual void OnGameHasBegun(GameHasBegunEventArgs e)
-		{
-			var handler = GameHasBegun;
-			if (handler != null)
-			    handler(this, e);
-		}
-		#endregion
-		
+        public event EventHandler<DealHasBegunEventArgs> DealHasBegun;
+
+
+        protected virtual void OnDealHasBegun (DealHasBegunEventArgs e)
+        {
+            var handler = DealHasBegun;
+            if (handler != null)
+                handler(this, e);
+        }
+        #endregion
+
 		#region CardsHaveBeenDealt Event
 		public event EventHandler<EventArgs> CardsHaveBeenDealt;
 
@@ -569,6 +609,18 @@ namespace BridgeIt.Tables
 		}
 		#endregion
 		
+        #region DealHasBeenAbandoned Event
+        public event EventHandler<EventArgs> DealHasBeenAbandoned;
+
+
+        protected virtual void OnDealHasBeenAbandoned ()
+        {
+            var handler = DealHasBeenAbandoned;
+            if (handler != null)
+                handler(this, new EventArgs());
+        }
+        #endregion
+
 		#region CallHasBeenMade Event
 		public class CallHasBeenMadeEventArgs : EventArgs
 		{
@@ -616,12 +668,12 @@ namespace BridgeIt.Tables
         #region DummyHasExposedHand Event
          public class DummyHasExposedHandEventArgs : EventArgs
          {
-             public DummyHasExposedHandEventArgs(Hand dummiesHand)
+             public DummyHasExposedHandEventArgs(IEnumerable<Card> dummiesCards)
              {
-                 DummiesHand = dummiesHand;
+                 DummiesCards = dummiesCards;
              }
     
-             public Hand DummiesHand { get; private set; }
+             public IEnumerable<Card> DummiesCards { get; private set; }
          }
     
          public event EventHandler<DummyHasExposedHandEventArgs> DummyHasExposedHand;
@@ -701,10 +753,10 @@ namespace BridgeIt.Tables
 		}
 		#endregion
 		
-		#region GameHasBeenWon Event
-		public class GameHasBeenWonEventArgs : EventArgs
+		#region DealHasBeenWon Event
+		public class DealHasBeenWonEventArgs : EventArgs
 		{
-			public GameHasBeenWonEventArgs(Side team, Score score)
+			public DealHasBeenWonEventArgs(Side team, Score score)
 			{
 				Winners = team;
 				Score = score;
@@ -714,20 +766,20 @@ namespace BridgeIt.Tables
 			public Score Score { get; private set; }
 		}
 
-		public event EventHandler<GameHasBeenWonEventArgs> GameHasBeenWon;
+		public event EventHandler<DealHasBeenWonEventArgs> DealHasBeenWon;
 
-		protected virtual void OnGameHasBeenWon(GameHasBeenWonEventArgs e)
+		protected virtual void OnDealHasBeenWon(DealHasBeenWonEventArgs e)
 		{
-			var handler = GameHasBeenWon;
+			var handler = DealHasBeenWon;
 			if (handler != null)
 				handler(this, e);
 		}
 		#endregion
 		
-		#region MatchHasBeenWon Event
-		public class MatchHasBeenWonEventArgs : EventArgs
+		#region SessionHasEnded Event
+		public class SessionHasEndedEventArgs : EventArgs
 		{
-			public MatchHasBeenWonEventArgs(Side team, Score score)
+			public SessionHasEndedEventArgs(Side team, Score score)
 			{
 				Winners = team;
 				Score = score;
@@ -737,11 +789,11 @@ namespace BridgeIt.Tables
 			public Score Score { get; private set; }
 		}
 
-		public event EventHandler<MatchHasBeenWonEventArgs> MatchHasBeenWon;
+		public event EventHandler<SessionHasEndedEventArgs> SessionHasEnded;
 
-		protected virtual void OnMatchHasBeenWon(MatchHasBeenWonEventArgs e)
+		protected virtual void OnSessionHasEnded(SessionHasEndedEventArgs e)
 		{
-			var handler = MatchHasBeenWon;
+			var handler = SessionHasEnded;
 			if (handler != null)
 				handler(this, e);
 		}

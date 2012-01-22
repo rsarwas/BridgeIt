@@ -55,13 +55,11 @@ namespace BridgeIt.Core
         }
 
 
-
-
         public static Call First (this IEnumerable<Call> calls, CallType type, Suit suit, Side side)
         {
-            return calls.First(c => c.CallType == type &&
-                                    c.Bid.Suit == suit &&
-                                    c.Bidder.GetSide() == side);
+            return calls.FirstOrDefault(c => c.CallType == type &&
+                                             (c.CallType != CallType.Bid || c.Bid.Suit == suit) &&
+                                             c.Bidder.GetSide() == side);
         }
 
 
@@ -121,10 +119,10 @@ namespace BridgeIt.Core
                                lastCalls[1].CallType == CallType.Double;
             }
             // countOfCalls > 2
-            return lastCalls[3].CallType == CallType.Double ||
+            return lastCalls[2].CallType == CallType.Double ||
                            (lastCalls[0].CallType == CallType.Double &&
                             lastCalls[1].CallType == CallType.Pass &&
-                            lastCalls[3].CallType == CallType.Pass);
+                            lastCalls[2].CallType == CallType.Pass);
 
         }
 
@@ -146,14 +144,13 @@ namespace BridgeIt.Core
             }
             if (countOfCalls == 2)
             {
-                return lastCalls[0].CallType == CallType.Bid &&
-                               lastCalls[1].CallType != CallType.Pass;
+                return lastCalls[1].CallType == CallType.Bid;
             }
             // countOfCalls > 2
-            return lastCalls[3].CallType == CallType.Bid ||
+            return lastCalls[2].CallType == CallType.Bid ||
                            (lastCalls[0].CallType == CallType.Bid &&
                             lastCalls[1].CallType == CallType.Pass &&
-                            lastCalls[3].CallType == CallType.Pass);
+                            lastCalls[2].CallType == CallType.Pass);
         }
     }
 }

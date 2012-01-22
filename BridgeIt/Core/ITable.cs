@@ -41,7 +41,7 @@ namespace BridgeIt.Core
 
 
         
-        void Start (Seat dealer = Seat.South);
+        void StartSession (Seat dealer = Seat.South);
 
 
         IEnumerable<Card> GetHand (IPlayer player);

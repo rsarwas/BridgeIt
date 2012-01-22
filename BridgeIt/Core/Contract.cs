@@ -72,6 +72,11 @@ namespace BridgeIt.Core
         /// <value>
         /// The final <see cref="BridgeIt.Core.Bid" />.
         /// </value>
-        public Bid Bid {get; private set; }
+        public Bid Bid { get; private set; }
+
+        public override string ToString ()
+        {
+            return Bid.ToString() + (Doubles == 0 ? "" : (Doubles == 1 ? " Doubled" : " Redoubled"));
+        }
     }
 }
