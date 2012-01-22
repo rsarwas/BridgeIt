@@ -115,6 +115,13 @@ decisions about changing state.
    I.e. If a player wants to play a card, they need to wait for the previous player to play thier cards.
  */
 
+/* Notes on the laws
+   Law 7 - Change of Pack
+   The table should have two decks of cards, and alternate these decks
+   Our decks are a only good for one deal, so a new pack is se change
+   packs on every deal instead of alternating
+ */
+
 using BridgeIt.Core;
 using System;
 using System.Linq;
@@ -154,6 +161,12 @@ namespace BridgeIt.Tables
 		//public State? {get; private set;}
 		//public Status? Empty, partially full, full, dealing, bidding, playing
 
+        //Law 66 - Inspection of Tricks
+        //Declarer or either defender may, until a member of his side has
+        //led or played to the following trick, inspect a trick and inquire
+        //what card each player has played to it. Thereafter, until play ceases,
+        //quitted tricks may be inspected only to account for a missing or surplus card.
+        //FIXME - CurrentTrick is hidden before the next trick begins.
         public Trick CurrentTrick
         {
             get { return _tricks.LastOrDefault(); }
@@ -180,35 +193,21 @@ namespace BridgeIt.Tables
 
         public IEnumerable<Call> LastThreeCalls
         {
-            get
-            {
-                if (_calls.Count <= 3)
-                {
-                    return new List<Call>(_calls);
-                }
-                else
-                {
-                    return _calls.GetRange(_calls.Count - 3, 3);
-                }
-            }
+            get { return _calls.Last(3);}
         }
 
+        //TODO - Law41 - Declarer, before making any play, or either defender,
+        // at his first turn to play, may require a restatement of the auction
+        // in its entirety.
 
-        private void ResetState()
-		{
-			Dealer = Seat.None;
-			Declarer = Seat.None;
-			Dummy = Seat.None;
-			ActivePlayer = Seat.None;
-			Trump = Suit.None;
-            Contract = null;
-            _calls.Clear();
-            _tricks.Clear();
-		}
-		
 		#region Interface Methods that IPlayer is expecting
+
   		public IEnumerable<Card> GetHand (IPlayer player)
         {
+            //by Law 8, a player should not (but can) look at his cards before the deal is complete.
+            //A player is not entitled to a redeal if they have looked at their unfinished hand.
+            //redeal are not going to happen, because we always deal fairly.
+            //Therefore a play can look at his cards without consequence.
             try
             {
                 return _hands[player].Cards;
@@ -217,8 +216,10 @@ namespace BridgeIt.Tables
             {
                 throw new Exception("Player is not sitting at this table.", ex);
             }
-		}
+        }
 
+        //FIXME - allow the player to choose his seat
+        //        will need a property to see the open seats.
 		public Seat SitDown (IPlayer player)
         {
             lock (_tableLock)
@@ -275,11 +276,11 @@ namespace BridgeIt.Tables
                 if (Contract != null)
                     throw new CallException("You cannot bid once a contract has been established.");
 
-                if (!IsCallLegal(call))
+                if (!_calls.IsCallLegal(call))
                 {
                     switch (call.CallType)
                     {
-                        case CallType.ReDouble:
+                        case CallType.Redouble:
                             throw new CallException("Cannot redouble without a prior bid having been doubled by opponent.");
                         case CallType.Double:
                             throw new CallException("Cannot double without a prior bid by opponent.");
@@ -291,12 +292,13 @@ namespace BridgeIt.Tables
                             throw new ArgumentException("Call type '" + call.CallType + "' not recognized.");
                     }
                 }
+
                 //Call is legal
                 _calls.Add(call);
                 OnCallHasBeenMade(new CallHasBeenMadeEventArgs(call));
 
                 //If the first four calls are all pass then abort
-                if (_calls.Count == 4 && _calls.Count(c => c.CallType == CallType.Pass) == 4)
+                if (_calls.AreLastFourPasses())
                 {
                     AbortDeal();
                     return;
@@ -304,8 +306,7 @@ namespace BridgeIt.Tables
 
                 //else if three passes with a bid then goto play mode
                 //Even with a maximum bid (7NT), we need to wait for 3 passes, due to potential for doubling
-                Call lastBidCall = _calls.LastOrDefault(c => c.CallType == CallType.Bid);
-                if (lastBidCall != null && LastThreeCalls.Count(c => c.CallType == CallType.Pass) == 3)
+                if (_calls.HasBidAndLastThreeArePasses())
                 {
                     EnterPlayPhase();
                     return;
@@ -315,30 +316,6 @@ namespace BridgeIt.Tables
                 ActivePlayer = NextSeat(ActivePlayer);
                 _players[ActivePlayer].PlaceBid();
             }
-        }
-
-
-        private int GetDoubles ()
-        {
-            foreach (Call call in _calls.Reverse<Call>())
-            {
-                if (call.CallType == CallType.ReDouble)
-                    return 2;
-                if (call.CallType == CallType.Double)
-                    return 1;
-                if (call.CallType == CallType.Bid)
-                    return 0;
-            }
-            return 0;
-        }
-
-
-        private Seat GetDeclarer ()
-        {
-            Suit winningSuit = Contract.Bid.Suit;
-            Team winningTeam = Declarer.GetTeam();
-            Call firstCallInWinningSuitByWinningTeam = _calls.First(c => c.CallType == CallType.Bid && c.Bid.Suit == winningSuit && c.Bidder.GetTeam() == winningTeam);
-            return firstCallInWinningSuitByWinningTeam.Bidder;
         }
 
 
@@ -362,14 +339,18 @@ namespace BridgeIt.Tables
                 if (!hand.Contains(card))
                     throw new PlayException("The " + card + " is not yours to play");
 
-                if (!IsPlayLegal(_hands[player], card))
-                    throw new PlayException("You must play a" + CurrentTrick.Suit);
+                if (!CurrentTrick.IsLegalPlay(card, hand))
+                {
+                    if (CurrentTrick.Done)
+                        throw new PlayException("The current trick is finished");
+                    else
+                        throw new PlayException("You must play a " + CurrentTrick.Suit);
+                }
 
-                //check if current trick is full??
-                //Assert(!CurrentTrick.Done);
-
-                Seat seat = _seats[player];
-                CurrentTrick.AddCard(card, seat);
+                CurrentTrick.AddCard(card, ActivePlayer);
+                OnCardHasBeenPlayed(new Table.CardHasBeenPlayedEventArgs(ActivePlayer, card));
+                if (_tricks.Count == 1 && CurrentTrick.Cards.Count() == 1)
+                    OnDummyHasExposedHand(new Table.DummyHasExposedHandEventArgs(_hands[_players[Dummy]]));
 
                 if (CurrentTrick.Done)
                 {
@@ -377,20 +358,23 @@ namespace BridgeIt.Tables
                     if (_tricks.Count == 13)
                     {
                         FinishGame();
-                        return;
                     }
-                    ActivePlayer = CurrentTrick.Winner;
-                    _tricks.Add(new Trick(Trump));
-                    _players[ActivePlayer].Play();
-                    return;
+                    else
+                    {
+                        // Law 44 - "The player who has won the trick leads to the next trick."
+                        ActivePlayer = CurrentTrick.Winner;
+                        _tricks.Add(new Trick(Trump));
+                        _players[ActivePlayer].Play();
+                    }
                 }
-
-                //We aren't done yet, request the next card
-                ActivePlayer = NextSeat(ActivePlayer);
-                if (ActivePlayer == Dummy)
-                    _players[Declarer].PlayForDummy(_players[Dummy]);
                 else
-                    _players[ActivePlayer].Play();
+                {
+                    ActivePlayer = NextSeat(ActivePlayer);
+                    if (ActivePlayer == Dummy)
+                        _players[Declarer].PlayForDummy(_players[Dummy]);
+                    else
+                        _players[ActivePlayer].Play();
+                }
             }
         }
 
@@ -412,64 +396,26 @@ namespace BridgeIt.Tables
 		
 		#endregion
 
-        private bool IsCallLegal (Call call)
+        private void ResetState ()
         {
-            List<Call> lastThreeCalls = LastThreeCalls.ToList();
-            int countOfCalls = lastThreeCalls.Count;
-
-            switch (call.CallType)
-            {
-                case CallType.ReDouble:
-                    if (countOfCalls < 2)
-                        return false;
-                    if (countOfCalls == 2)
-                    {
-                        return lastThreeCalls[0].CallType == CallType.Bid &&
-                               lastThreeCalls[1].CallType == CallType.Double;
-                    }
-                    // countOfCalls > 2
-                    return lastThreeCalls[3].CallType == CallType.Double ||
-                           (lastThreeCalls[0].CallType == CallType.Double &&
-                            lastThreeCalls[1].CallType == CallType.Pass &&
-                            lastThreeCalls[3].CallType == CallType.Pass);
-
-                case CallType.Double:
-                    if (countOfCalls < 1)
-                        return false;
-                    if (countOfCalls == 1)
-                    {
-                        return lastThreeCalls[0].CallType == CallType.Bid;
-                    }
-                    if (countOfCalls == 2)
-                    {
-                        return lastThreeCalls[0].CallType == CallType.Bid &&
-                               lastThreeCalls[1].CallType != CallType.Pass;
-                    }
-                    // countOfCalls > 2
-                    return lastThreeCalls[3].CallType == CallType.Bid ||
-                           (lastThreeCalls[0].CallType == CallType.Bid &&
-                            lastThreeCalls[1].CallType == CallType.Pass &&
-                            lastThreeCalls[3].CallType == CallType.Pass);
-
-                case CallType.Bid:
-                    Call lastBidCall = _calls.LastOrDefault(c => c.CallType == CallType.Bid);
-                    return (lastBidCall == null) ? true : call.Bid.Beats(lastBidCall.Bid);
-
-                case CallType.Pass:
-                    return true;
-
-                default:
-                    return false;
-            }
+            Dealer = Seat.None;
+            Declarer = Seat.None;
+            Dummy = Seat.None;
+            ActivePlayer = Seat.None;
+            Trump = Suit.None;
+            Contract = null;
+            _calls.Clear();
+            _tricks.Clear();
         }
 
-
-        private bool IsPlayLegal (Hand hand, Card card)
+        private Seat GetDeclarer (IEnumerable<Call> calls, Contract contract)
         {
-            return CurrentTrick.IsEmpty ||
-                   CurrentTrick.Suit == card.Suit ||
-                   hand.VoidOfSuit(CurrentTrick.Suit);
+            Suit winningSuit = contract.Bid.Suit;
+            Side winningSide = calls.LastBidder().GetSide();
+            Call firstCall = calls.First(CallType.Bid, winningSuit, winningSide);
+            return firstCall.Bidder;
         }
+
 
         private static Seat NextSeat (Seat seat)
         {
@@ -491,12 +437,12 @@ namespace BridgeIt.Tables
             throw new NotImplementedException();
         }
 
-        public void FinishGame ()
+        private void FinishGame ()
         {
             //Fixme - finish
             //determine winning team, and score
-            OnGameHasBeenWon(new Table.GameHasBeenWonEventArgs(Team.None, new Score()));
-            OnMatchHasBeenWon(new Table.MatchHasBeenWonEventArgs(Team.None, new Score()));
+            OnGameHasBeenWon(new Table.GameHasBeenWonEventArgs(Side.None, new Score()));
+            OnMatchHasBeenWon(new Table.MatchHasBeenWonEventArgs(Side.None, new Score()));
             //new deal??
             ResetState();
         }
@@ -504,10 +450,8 @@ namespace BridgeIt.Tables
 
         private void EnterPlayPhase ()
         {
-            Call lastBidCall = _calls.LastOrDefault(c => c.CallType == CallType.Bid);
-            //Assert lastBidCall != null;
-            Contract = new Contract(lastBidCall.Bid, GetDoubles());
-            Declarer = GetDeclarer();
+            Contract = new Contract(_calls.LastBid(), _calls.GetDoubles());
+            Declarer = GetDeclarer(_calls, Contract);
             Trump = Contract.Bid.Suit;
             OnBiddingIsComplete(new Table.BiddingIsCompleteEventArgs(Declarer, Contract));
             ActivePlayer = NextSeat(Declarer);
@@ -668,7 +612,28 @@ namespace BridgeIt.Tables
 				handler(this, e);
 		}
 		#endregion
-		
+
+        #region DummyHasExposedHand Event
+         public class DummyHasExposedHandEventArgs : EventArgs
+         {
+             public DummyHasExposedHandEventArgs(Hand dummiesHand)
+             {
+                 DummiesHand = dummiesHand;
+             }
+    
+             public Hand DummiesHand { get; private set; }
+         }
+    
+         public event EventHandler<DummyHasExposedHandEventArgs> DummyHasExposedHand;
+    
+         protected virtual void OnDummyHasExposedHand(DummyHasExposedHandEventArgs e)
+         {
+             var handler = DummyHasExposedHand;
+             if (handler != null)
+                 handler(this, e);
+         }
+         #endregion
+
 		#region CardHasBeenPlayed Event
 		public class CardHasBeenPlayedEventArgs : EventArgs
 		{
@@ -739,13 +704,13 @@ namespace BridgeIt.Tables
 		#region GameHasBeenWon Event
 		public class GameHasBeenWonEventArgs : EventArgs
 		{
-			public GameHasBeenWonEventArgs(Team team, Score score)
+			public GameHasBeenWonEventArgs(Side team, Score score)
 			{
 				Winners = team;
 				Score = score;
 			}
 			
-			public Team Winners { get; private set; }
+			public Side Winners { get; private set; }
 			public Score Score { get; private set; }
 		}
 
@@ -762,13 +727,13 @@ namespace BridgeIt.Tables
 		#region MatchHasBeenWon Event
 		public class MatchHasBeenWonEventArgs : EventArgs
 		{
-			public MatchHasBeenWonEventArgs(Team team, Score score)
+			public MatchHasBeenWonEventArgs(Side team, Score score)
 			{
 				Winners = team;
 				Score = score;
 			}
 			
-			public Team Winners { get; private set; }
+			public Side Winners { get; private set; }
 			public Score Score { get; private set; }
 		}
 

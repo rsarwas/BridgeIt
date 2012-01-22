@@ -55,7 +55,7 @@ namespace Tests.Core
             Call call1 = new Call(Seat.West, CallType.Pass, null);
             Call call2 = new Call(Seat.East, CallType.Pass, null);
             Call call3 = new Call(Seat.East, CallType.Double, null);
-            Call call4 = new Call(Seat.East, CallType.ReDouble, null);
+            Call call4 = new Call(Seat.East, CallType.Redouble, null);
             Call call5 = new Call(Seat.East, CallType.Bid, bid1);
             Call call6 = new Call(Seat.East, CallType.Pass, bid2);
             Call call7 = new Call(Seat.North, CallType.Pass, bid2);

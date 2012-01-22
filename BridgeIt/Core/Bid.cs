@@ -26,18 +26,23 @@ namespace BridgeIt.Core
 	public class Bid
 	{
 		public Bid (int tricks, Suit suit)
-		{
-			if (tricks < 1 || tricks > 7)
-				throw new ArgumentOutOfRangeException ("tricks", "Number of tricks must in the range 1 to 7");
-			Tricks = tricks;
-			Suit = suit;
+        {
+            if (tricks < 1 || tricks > 7)
+                throw new ArgumentOutOfRangeException("tricks", "Number of tricks must in the range 1 to 7");
+            Tricks = tricks;
+            // treat Suit.None as Suit.NoTrump - to guarantee that bids compare properly
+			Suit = (suit == Suit.None) ? Suit.NoTrump : suit;
 		}
 		
-		public bool Beats(Bid other)
-		{
-			return ((other.Tricks < this.Tricks) ||
+        //FIXME implement Iequality and Icompare
+     
+		public bool IsSufficient (Bid other)
+        {
+            if (other == null)
+                return true;
+            return ((other.Tricks < this.Tricks) ||
                     (other.Tricks == this.Tricks && other.Suit < this.Suit));
-		}
+        }
 		
 		public int Tricks  { get; private set; }
 		
@@ -57,8 +62,6 @@ namespace BridgeIt.Core
 			Suit suit = Card.SuitFromString (suitString);
 			return new Bid (tricks, suit);
 		}
-		
-		//FIXME implement Iequality and Icompare
 		
 		public override string ToString ()
 		{

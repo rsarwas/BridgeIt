@@ -19,7 +19,6 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>false</ConsolePause>
-    <GenerateDocumentation>true</GenerateDocumentation>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>none</DebugType>
@@ -28,6 +27,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <ConsolePause>false</ConsolePause>
+    <GenerateDocumentation>true</GenerateDocumentation>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -38,7 +38,6 @@
     <Compile Include="Core\Suit.cs" />
     <Compile Include="Core\Trick.cs" />
     <Compile Include="Core\Card.cs" />
-    <Compile Include="Core\Team.cs" />
     <Compile Include="Core\Rank.cs" />
     <Compile Include="Core\Extensions.cs" />
     <Compile Include="Core\Seat.cs" />
@@ -55,6 +54,9 @@
     <Compile Include="Tables\ContractTable.cs" />
     <Compile Include="Core\Contract.cs" />
     <Compile Include="Core\Exceptions.cs" />
+    <Compile Include="Core\Side.cs" />
+    <Compile Include="Core\CallExtensions.cs" />
+    <Compile Include="Core\TableState.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>

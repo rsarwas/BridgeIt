@@ -47,7 +47,7 @@ namespace BridgeIt.Core
 			if (lower == "d" || lower == "double")
 				return new Call(bidder, CallType.Double);
 			if (lower == "r" || lower == "redouble")
-				return new Call(bidder, CallType.ReDouble);
+				return new Call(bidder, CallType.Redouble);
 			return new Call(bidder, CallType.Bid, Bid.FromString(s));
 		}
 		

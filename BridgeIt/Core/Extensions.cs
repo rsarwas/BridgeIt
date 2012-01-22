@@ -51,22 +51,40 @@ namespace BridgeIt.Core
             return sb.ToString();
         }
 
-        public static Team GetTeam (this Seat seat)
+        public static Side GetSide (this Seat seat)
         {
             switch (seat)
             {
                 case Seat.None:
-                    return Team.None;
+                    return Side.None;
                 case Seat.North:
                 case Seat.South:
-                    return Team.NorthSouth;
+                    return Side.NorthSouth;
                 case Seat.East:
                 case Seat.West:
-                    return Team.WestEast;
+                    return Side.WestEast;
                 default:
-                    throw new ArgumentException("Seat of '" + seat +"' not recognized.");
+                    throw new ArgumentException("Seat of '" + seat + "' not recognized.");
             }
         }
+
+        /// <summary>
+        /// Returns an enumeration of at most the last n items in the original order.  Return value may have less than n items.
+        /// </summary>
+        /// <remarks>
+        /// Convert to a list instead of using items.Skip(items.Count() - n) which requires multiple enumerations, and checks for Count() < n
+        /// Converting to a list also guarantees a copy.
+        /// Plus internally we can take advantage of the underlying list to speed up calling methods
+        /// </remarks>
+        /// <value>
+        /// The last three items.
+        /// </value>
+        public static IEnumerable<TSource> Last<TSource> (this IEnumerable<TSource> items, int n)
+        {
+            var itemList = items.ToList();
+            return (itemList.Count <= n) ? itemList : itemList.GetRange(itemList.Count - n, n);
+        }
+
 	}
 }
 

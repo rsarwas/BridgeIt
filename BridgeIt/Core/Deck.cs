@@ -126,7 +126,15 @@ namespace BridgeIt.Core
 			while (swapCount < Deck.Size * 4);
 			_deck = new Queue<Card>(pile);
 		}
-		
+
+
+        public void Cut (int top)
+        {
+            for (int i = 0; i < top; i++)
+                _deck.Enqueue(_deck.Dequeue());
+        }
+
+        
 		public IEnumerable<Card> GetCards()
 		{
 			return _deck.ToArray();

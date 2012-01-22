@@ -23,6 +23,6 @@ namespace BridgeIt.Core
 		Pass,
 		Bid,
 		Double,
-		ReDouble,
+		Redouble,
 	}
 }

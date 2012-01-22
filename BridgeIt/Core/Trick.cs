@@ -37,22 +37,31 @@ namespace BridgeIt.Core
 			Suit = Suit.None;
 		}
 
-		public void AddCard(Card card, Seat player)
-		{
-			if (Done)
-				throw new Exception("Trick is done, cannot add more cards.");
-			if (_cards.Contains(card))
-				throw new Exception("Card is already in the trick.");
+		public void AddCard (Card card, Seat player)
+        {
+            if (Done)
+                throw new Exception("Trick is done, cannot add more cards.");
+            if (_cards.Contains(card))
+                throw new Exception("Card is already in the trick.");
 			
-			//FIXME - add check for player has already played
-			//FIXME - add check for card is added by the right player (clockwise around table)
+            //FIXME - add check for player has already played
+            //FIXME - add check for card is added by the right player (clockwise around table)
 			
-			_cards.Add(card);
-			_players.Add(player);
-			_winner = WhoPlayed(GetHighestCard());
-			if (Suit == Suit.None)
-				Suit = card.Suit;
-		}
+            _cards.Add(card);
+            _players.Add(player);
+
+            _winner = WhoPlayed(GetHighestCard());
+            if (Suit == Suit.None)
+                Suit = card.Suit;
+        }
+
+        public bool IsLegalPlay (Card card, Hand hand)
+        {
+            return !Done && (IsEmpty ||
+                             Suit == card.Suit ||
+                             hand.VoidOfSuit(Suit));
+        }
+
 
         public bool IsEmpty
         {
@@ -84,8 +93,15 @@ namespace BridgeIt.Core
 			}
 		}
 		
-		
-		public Seat WhoPlayed(Card card)
+		//Law 44 - "A trick containing a trump is won by the player who has contributed to
+        //it the highest trump. A trick that does not contain a trump is won by the player
+        //who has contributed to it the highest card of the suit led."
+        private Seat GetWinner ()
+        {
+            return WhoPlayed(GetHighestCard());
+        }
+        
+        public Seat WhoPlayed(Card card)
 		{
 			if (!_cards.Contains(card))
 				throw new Exception("Card is not in this trick");
