@@ -27,7 +27,7 @@ namespace BridgeIt.Core
 
         Seat Dummy { get; }
 
-        Seat ActivePlayer { get; }
+        Seat HotSeat { get; }
 
         Suit Trump { get; }
 

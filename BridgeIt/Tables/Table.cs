@@ -77,7 +77,7 @@ State available to the public (all is readonly)
   Contract Contract
   Trick CurrentTrick
   Bid CurrentBid
-  Seat ActivePlayer
+  Seat HotSeat
   State?
   Status? Empty, partially full, full, dealing, bidding, playing
 
@@ -127,7 +127,13 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 
-//TODO: Add a timer to periodically poke players when it is there turn to bid/play
+//Table does not run in its own thread.  It only runs on a players thread when
+//when one of the public methods/properties are called.  All messages sent from
+//table are non-blocking async messages, so the player initiating the action is
+//not blocked if one of the subscribers initiates a long running activity.
+
+//TODO: Add a timer with stop/start method (on a new thread) to periodically poke
+//players when it is there turn to bid/play, or to enforce time limits
 
 namespace BridgeIt.Tables
 {
@@ -155,7 +161,7 @@ namespace BridgeIt.Tables
 		public Seat Dealer {get; private set;}
 		public Seat Declarer {get; private set;}
 		public Seat Dummy {get; private set;}
-		public Seat ActivePlayer {get; private set;}
+		public Seat HotSeat {get; private set;}
 		public Suit Trump {get; private set;}
 		public Contract Contract {get; private set;}
 		//public State? {get; private set;}
@@ -171,7 +177,6 @@ namespace BridgeIt.Tables
         {
             get { return _tricks.LastOrDefault(); }
         }
-
 
         public Call CurrentCall
         {
@@ -285,10 +290,10 @@ namespace BridgeIt.Tables
                 if (!_seats.ContainsKey(player))
                     throw new CallException("Player is not seated at the table");
 			
-                if (player != _players[ActivePlayer])
+                if (player != _players[HotSeat])
                     throw new CallException("It is not players turn to make a bid");
 			
-                if (call.Bidder != ActivePlayer)
+                if (call.Bidder != HotSeat)
                     throw new CallException("You cannot make a bid for another player.");
 
                 if (Contract != null)
@@ -331,26 +336,34 @@ namespace BridgeIt.Tables
                 }
 
                 //We aren't done yet, request the next bid
-                ActivePlayer = NextSeat(ActivePlayer);
-                _players[ActivePlayer].PlaceBid();
+                HotSeat = NextSeat(HotSeat);
+                //_players[HotSeat].PlaceBid();
             }
         }
 
-
-		public void PlayCard (IPlayer player, Card card)
+        //player unique identifies and validates the entity making the play
+        //if it is dummy, it must be rejected.  If it is Declarer, then it
+        //is valid when it is dummy or declareres turn.
+        public void PlayCard (IPlayer player, Card card)
         {
             lock (_tableLock)
             {
                 if (!_seats.ContainsKey(player))
                     throw new PlayException("Player is not seated at the table.");
 
-                if (player != _players[ActivePlayer])
-                    throw new PlayException("It is not your turn to play a card.");
-
                 if (Contract == null || CurrentTrick == null)
                     throw new PlayException("You cannot play a card until bidding is done.");
 
-                Hand hand = _hands[player];
+                if (_seats[player] == Dummy)
+                    throw new PlayException("Dummy is not allowed to play his cards.");
+
+                bool correctPlayer = player == _players[HotSeat] ||
+                                     (HotSeat == Dummy && player == _players[Declarer]);
+                if (!correctPlayer)
+                    throw new PlayException("It is not your turn to play a card.");
+
+                //Make sure I get Dummies hand when appropriate
+                Hand hand = _hands[_players[HotSeat]];
                 if (hand.Count == 0)
                     throw new PlayException("You have no cards to play.");
 
@@ -365,13 +378,14 @@ namespace BridgeIt.Tables
                         throw new PlayException(CurrentTrick.Suit + " were lead. You can and must follow suit.");
                 }
 
+                //We have a legal card from the correct player
                 hand.Remove(card);
-                CurrentTrick.AddCard(card, ActivePlayer);
-                OnCardHasBeenPlayed(new Table.CardHasBeenPlayedEventArgs(ActivePlayer, card));
-                if (_tricks.Count == 1 && CurrentTrick.Cards.Count() == 1)
-                    //FIXME - I can't give out a hand, lest people remove cards from it.
-                    OnDummyHasExposedHand(new Table.DummyHasExposedHandEventArgs(_hands[_players[Dummy]].Cards));
-
+                CurrentTrick.AddCard(card, HotSeat);
+                OnCardHasBeenPlayed(new Table.CardHasBeenPlayedEventArgs(HotSeat, card));
+                if (IsOpeningLead())
+                {
+                    OnDummyHasExposedHand(new Table.DummyHasExposedHandEventArgs(DummiesCards));
+                }
                 if (CurrentTrick.Done)
                 {
                     OnTrickHasBeenWon(new Table.TrickHasBeenWonEventArgs(CurrentTrick.Winner, CurrentTrick));
@@ -382,20 +396,25 @@ namespace BridgeIt.Tables
                     else
                     {
                         // Law 44 - "The player who has won the trick leads to the next trick."
-                        ActivePlayer = CurrentTrick.Winner;
+                        HotSeat = CurrentTrick.Winner;
                         _tricks.Add(new Trick(Trump));
-                        _players[ActivePlayer].Play();
+                        //_players[HotSeat].Play();
                     }
                 }
                 else
                 {
-                    ActivePlayer = NextSeat(ActivePlayer);
-                    if (ActivePlayer == Dummy)
-                        _players[Declarer].PlayForDummy(_players[Dummy]);
-                    else
-                        _players[ActivePlayer].Play();
+                    HotSeat = NextSeat(HotSeat);
+//                    if (HotSeat == Dummy)
+//                        _players[Declarer].PlayForDummy(_players[Dummy]);
+//                    else
+//                        _players[HotSeat].Play();
                 }
             }
+        }
+
+        private bool IsOpeningLead ()
+        {
+            return _tricks.Count == 1 && CurrentTrick.Cards.Count() == 1;
         }
 
 		public void Quit (IPlayer player)
@@ -427,7 +446,7 @@ namespace BridgeIt.Tables
             Dealer = dealer;
             Declarer = Seat.None;
             Dummy = Seat.None;
-            ActivePlayer = Dealer;
+            HotSeat = Dealer;
             Trump = Suit.None;
             Contract = null;
             _calls.Clear();
@@ -492,11 +511,11 @@ namespace BridgeIt.Tables
             Declarer = GetDeclarer(_calls, Contract);
             Trump = Contract.Bid.Suit;
             OnBiddingIsComplete(new Table.BiddingIsCompleteEventArgs(Declarer, Contract));
-            ActivePlayer = NextSeat(Declarer);
-            Dummy = NextSeat(ActivePlayer);
+            HotSeat = NextSeat(Declarer);
+            Dummy = NextSeat(HotSeat);
             _calls.Clear();
             _tricks.Add(new Trick(Trump));
-            _players[ActivePlayer].Play();
+            //_players[HotSeat].Play();
         }
 
 
@@ -522,7 +541,7 @@ namespace BridgeIt.Tables
 			foreach (var place in Seats)
 				hands[place] = new List<Card>(Hand.MaxSize);
 			
-			Seat seat = ActivePlayer; //Active player is the dealer when dealing
+			Seat seat = HotSeat; //Active player is the dealer when dealing
 			foreach (Card card in deck.GetCards()) {
 				seat = NextSeat(seat);
 				hands[seat].Add(card);
@@ -532,6 +551,10 @@ namespace BridgeIt.Tables
 		}
 		
 		#region Events
+
+        //All of these are Fire and Forget messages
+        //They use BeginInvoke on the delegate without a callback function.
+        //This guards against a long running mis-behaving delegate blocking.
 
 		#region PlayerHasJoined Event
 		public class PlayerHasJoinedEventArgs : EventArgs
@@ -550,7 +573,7 @@ namespace BridgeIt.Tables
 		{
 			var handler = PlayerHasJoined;
 			if (handler != null)
-			    handler(this, e);
+			    handler.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -571,7 +594,7 @@ namespace BridgeIt.Tables
 		{
 			var handler = SessionHasBegun;
 			if (handler != null)
-			    handler(this, e);
+			    handler.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -594,7 +617,7 @@ namespace BridgeIt.Tables
         {
             var handler = DealHasBegun;
             if (handler != null)
-                handler(this, e);
+                handler.BeginInvoke(this, e, null, null);
         }
         #endregion
 
@@ -605,7 +628,7 @@ namespace BridgeIt.Tables
 		{
 			var handler = CardsHaveBeenDealt;
 			if (handler != null)
-			    handler(this, new EventArgs());
+			    handler.BeginInvoke(this, new EventArgs(), null, null);
 		}
 		#endregion
 		
@@ -617,7 +640,7 @@ namespace BridgeIt.Tables
         {
             var handler = DealHasBeenAbandoned;
             if (handler != null)
-                handler(this, new EventArgs());
+                handler.BeginInvoke(this, new EventArgs(), null, null);
         }
         #endregion
 
@@ -638,7 +661,7 @@ namespace BridgeIt.Tables
 		{
 			var handler = CallHasBeenMade;
 			if (handler != null)
-				handler(this, e);
+				handler.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -661,7 +684,7 @@ namespace BridgeIt.Tables
 		{
 			var handler = BiddingIsComplete;
 			if (handler != null)
-				handler(this, e);
+				handler.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 
@@ -682,7 +705,7 @@ namespace BridgeIt.Tables
          {
              var handler = DummyHasExposedHand;
              if (handler != null)
-                 handler(this, e);
+                 handler.BeginInvoke(this, e, null, null);
          }
          #endregion
 
@@ -705,7 +728,7 @@ namespace BridgeIt.Tables
 		{
 			var handler = CardHasBeenPlayed;
 			if (handler != null)
-				handler(this, e);
+				handler.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -728,7 +751,7 @@ namespace BridgeIt.Tables
 		{
 			var handler = TrickHasBeenWon;
 			if (handler != null)
-				handler(this, e);
+				handler.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -749,7 +772,7 @@ namespace BridgeIt.Tables
 		{
 			var handler = PlayerHasQuit;
 			if (handler != null)
-			    handler(this, e);
+			    handler.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -772,7 +795,7 @@ namespace BridgeIt.Tables
 		{
 			var handler = DealHasBeenWon;
 			if (handler != null)
-				handler(this, e);
+				handler.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -795,7 +818,7 @@ namespace BridgeIt.Tables
 		{
 			var handler = SessionHasEnded;
 			if (handler != null)
-				handler(this, e);
+				handler.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
