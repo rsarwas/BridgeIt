@@ -92,9 +92,9 @@ namespace BridgeIt.Players
 		private void Join (Table table)
 		{
 			//Once you sit down, table will start sending you messages.
-			_table = table;
 			SignupForMessages(table);
 			_seat = table.SitDown(this);
+            _table = table;
 		}
 		
 		private void Leave (Table table)
@@ -131,7 +131,7 @@ namespace BridgeIt.Players
 			table.BiddingIsComplete -= BiddingIsComplete;
 			table.CallHasBeenMade -= CallHasBeenMade;
 			table.CardsHaveBeenDealt -= CardsHaveBeenDealt;
-            table.DealHasBeenAbandoned += DealHasBeenAbandoned;
+            table.DealHasBeenAbandoned -= DealHasBeenAbandoned;
 			table.DealHasBeenWon -= DealHasBeenWon;
 			table.SessionHasBegun -= SessionHasBegun;
 			table.DealHasBegun -= DealHasBegun;

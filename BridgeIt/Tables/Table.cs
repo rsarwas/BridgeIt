@@ -183,6 +183,13 @@ namespace BridgeIt.Tables
             get { return _calls.LastOrDefault(); }
         }
 
+        public bool DealOver
+        {
+            get
+            {
+                return _tricks.Count == 13 && CurrentTrick.Done;
+            }
+        }
 
         public IEnumerable<Card> CardsOnTheTable
         {
@@ -273,7 +280,7 @@ namespace BridgeIt.Tables
             deck.Shuffle();
             Deal(deck);
             OnCardsHaveBeenDealt();
-            _players[dealer].PlaceBid();
+            //_players[dealer].PlaceBid();
         }
 
 
@@ -573,7 +580,8 @@ namespace BridgeIt.Tables
 		{
 			var handler = PlayerHasJoined;
 			if (handler != null)
-			    handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<PlayerHasJoinedEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -594,7 +602,8 @@ namespace BridgeIt.Tables
 		{
 			var handler = SessionHasBegun;
 			if (handler != null)
-			    handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<SessionHasBegunEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -617,19 +626,21 @@ namespace BridgeIt.Tables
         {
             var handler = DealHasBegun;
             if (handler != null)
-                handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<DealHasBegunEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
         }
         #endregion
 
 		#region CardsHaveBeenDealt Event
 		public event EventHandler<EventArgs> CardsHaveBeenDealt;
 
-		protected virtual void OnCardsHaveBeenDealt()
-		{
-			var handler = CardsHaveBeenDealt;
-			if (handler != null)
-			    handler.BeginInvoke(this, new EventArgs(), null, null);
-		}
+		protected virtual void OnCardsHaveBeenDealt ()
+        {
+            var handler = CardsHaveBeenDealt;
+            if (handler != null)
+                foreach (EventHandler<EventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, new EventArgs(), null, null);
+        }
 		#endregion
 		
         #region DealHasBeenAbandoned Event
@@ -640,7 +651,8 @@ namespace BridgeIt.Tables
         {
             var handler = DealHasBeenAbandoned;
             if (handler != null)
-                handler.BeginInvoke(this, new EventArgs(), null, null);
+                foreach (EventHandler<EventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, new EventArgs(), null, null);
         }
         #endregion
 
@@ -661,7 +673,8 @@ namespace BridgeIt.Tables
 		{
 			var handler = CallHasBeenMade;
 			if (handler != null)
-				handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<CallHasBeenMadeEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -684,7 +697,8 @@ namespace BridgeIt.Tables
 		{
 			var handler = BiddingIsComplete;
 			if (handler != null)
-				handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<BiddingIsCompleteEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 
@@ -705,7 +719,8 @@ namespace BridgeIt.Tables
          {
              var handler = DummyHasExposedHand;
              if (handler != null)
-                 handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<DummyHasExposedHandEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
          }
          #endregion
 
@@ -728,7 +743,8 @@ namespace BridgeIt.Tables
 		{
 			var handler = CardHasBeenPlayed;
 			if (handler != null)
-				handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<CardHasBeenPlayedEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -751,7 +767,8 @@ namespace BridgeIt.Tables
 		{
 			var handler = TrickHasBeenWon;
 			if (handler != null)
-				handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<TrickHasBeenWonEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -772,7 +789,8 @@ namespace BridgeIt.Tables
 		{
 			var handler = PlayerHasQuit;
 			if (handler != null)
-			    handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<PlayerHasQuitEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -795,7 +813,8 @@ namespace BridgeIt.Tables
 		{
 			var handler = DealHasBeenWon;
 			if (handler != null)
-				handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<DealHasBeenWonEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		
@@ -818,7 +837,8 @@ namespace BridgeIt.Tables
 		{
 			var handler = SessionHasEnded;
 			if (handler != null)
-				handler.BeginInvoke(this, e, null, null);
+                foreach (EventHandler<SessionHasEndedEventArgs> receiver in handler.GetInvocationList())
+                    receiver.BeginInvoke(this, e, null, null);
 		}
 		#endregion
 		

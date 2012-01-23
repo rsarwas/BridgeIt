@@ -51,6 +51,32 @@ namespace BridgeIt.Core
             return sb.ToString();
         }
 
+        public static Seat GetRightHandOpponent (this Seat seat)
+        {
+            //Seat 0 is reserved for the null seat
+            seat--;
+            if ((int)seat < 1)
+                seat = (Seat)4;
+            return seat;
+
+        }
+
+        private static Seat GetLeftHandOpponent (this Seat seat)
+        {
+            //Seat 0 is reserved for the null seat
+            seat++;
+            if ((int)seat > 4)
+                seat = (Seat)1;
+            return seat;
+        }
+
+
+        private static Seat GetNextSeat (this Seat seat)
+        {
+            return seat.GetLeftHandOpponent();
+        }
+
+
         public static Side GetSide (this Seat seat)
         {
             switch (seat)
@@ -84,6 +110,22 @@ namespace BridgeIt.Core
             var itemList = items.ToList();
             return (itemList.Count <= n) ? itemList : itemList.GetRange(itemList.Count - n, n);
         }
+
+        public static bool VoidOfSuit (this IEnumerable<Card> cards, Suit suit)
+        {
+            return !cards.Any(c => c.Suit == suit);
+        }
+
+        public static IEnumerable<Card> GetSuit (this IEnumerable<Card> cards, Suit suit)
+        {
+            return cards.Where(c => c.Suit == suit);
+        }
+
+        public static Card GetHighestInSuit (this IEnumerable<Card> cards, Suit suit)
+        {
+            return cards.GetSuit(suit).OrderByDescending(c => (int)c.Rank).First();
+        }
+
 
 	}
 }

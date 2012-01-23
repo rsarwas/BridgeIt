@@ -49,11 +49,11 @@ namespace BridgeIt.Core
 {
 	public interface IPlayer
 	{
-		void PlaceBid();
-		void PlaceBidNow(System.TimeSpan timelimit);
-		void Play();
+		//void PlaceBid();
+		//void PlaceBidNow(System.TimeSpan timelimit);
+		//void Play();
 		void PlayNow(System.TimeSpan timelimit);
-		void PlayForDummy(IPlayer dummy);
+		//void PlayForDummy(IPlayer dummy);
 		void PlayForDummyNow(IPlayer dummy, System.TimeSpan timelimit);
 	}
 }

@@ -19,7 +19,7 @@ using System.Collections.Generic;
 
 namespace BridgeIt.Core
 {
-    interface ITable
+    public interface ITable
     {
         Seat Dealer { get; }
 
@@ -30,6 +30,10 @@ namespace BridgeIt.Core
         Seat HotSeat { get; }
 
         Suit Trump { get; }
+
+        bool DealOver { get; }
+
+        IEnumerable<Card> DummiesCards { get; }
 
         Contract Contract { get; }
 
