@@ -15,10 +15,11 @@
 // limitations under the License.
 #endregion
 
-using System;
+//using System;
+//using BridgeIt.Core;
 using BridgeIt.Players;
 using BridgeIt.Tables;
-using System.Threading;
+//using System.Threading;
 using System.Collections.Generic;
 
 namespace ConsoleApp
@@ -27,10 +28,13 @@ namespace ConsoleApp
 	{
 		public static void Main (string[] args)
         {
-            List<SimpleComputerPlayer> players = new List<SimpleComputerPlayer>();
+            //List<SimpleComputerPlayer> players = new List<SimpleComputerPlayer>();
+            var players = new List<SimpleComputerPlayer>();
             Table table = new ContractTable();
-            foreach (var seat in Table.Seats)
+            for (int i = 0; i < Table.Seats.Length; i++ )
+            //foreach (Seat seat in Table.Seats)
             {
+                //seat is not used
                 //(new ConsolePlayer(Console.In, Console.Out)).JoinTable(table);
                 var p = new SimpleComputerPlayer();
                 p.JoinTable(table);

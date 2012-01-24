@@ -40,13 +40,20 @@ namespace BridgeIt.Core
 		
 		public static string PrintFormat (this IEnumerable<Card> cards)
         {
+            if (cards == null)
+                return "<null>";
+
             var sb = new StringBuilder();
             foreach (var suit in Deck.Suits)
             {
                 sb.AppendLine();
                 sb.Append(Card.SuitToGlyph(suit));
-                foreach (var card in cards.Where(c => c.Suit == suit).OrderByDescending<Card,Rank>(c => c.Rank))
-                    sb.Append(" " + Card.RankToString(card.Rank));
+                //TODO - investigate resharper comments
+                //suit: Access to modified closure; <Card,Rank> redundant; possible multiple enumerations of cards
+                //var suit1 = suit
+                //foreach (var card in cards.Where(c => c.Suit == suit1).OrderByDescending(c => c.Rank))
+                foreach (var card in cards.Where(c => c.Suit == suit).OrderByDescending<Card, Rank>(c => c.Rank))
+                        sb.Append(" " + Card.RankToString(card.Rank));
             }
             return sb.ToString();
         }
@@ -61,7 +68,7 @@ namespace BridgeIt.Core
 
         }
 
-        private static Seat GetLeftHandOpponent (this Seat seat)
+        public static Seat GetLeftHandOpponent (this Seat seat)
         {
             //Seat 0 is reserved for the null seat
             seat++;
@@ -70,8 +77,7 @@ namespace BridgeIt.Core
             return seat;
         }
 
-
-        private static Seat GetNextSeat (this Seat seat)
+        public static Seat GetNextSeat (this Seat seat)
         {
             return seat.GetLeftHandOpponent();
         }
@@ -98,7 +104,7 @@ namespace BridgeIt.Core
         /// Returns an enumeration of at most the last n items in the original order.  Return value may have less than n items.
         /// </summary>
         /// <remarks>
-        /// Convert to a list instead of using items.Skip(items.Count() - n) which requires multiple enumerations, and checks for Count() < n
+        /// Convert to a list instead of using items.Skip(items.Count() - n) which requires multiple enumerations, and checks for Count() less than n
         /// Converting to a list also guarantees a copy.
         /// Plus internally we can take advantage of the underlying list to speed up calling methods
         /// </remarks>

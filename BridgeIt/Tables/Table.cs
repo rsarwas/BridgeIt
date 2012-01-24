@@ -343,7 +343,8 @@ namespace BridgeIt.Tables
                 }
 
                 //We aren't done yet, request the next bid
-                HotSeat = NextSeat(HotSeat);
+                HotSeat = HotSeat.GetNextSeat();
+                //HotSeat = NextSeat(HotSeat);
                 //_players[HotSeat].PlaceBid();
             }
         }
@@ -381,13 +382,13 @@ namespace BridgeIt.Tables
                 {
                     if (CurrentTrick.Done)
                         throw new PlayException("The current trick is finished.");
-                    else
-                        throw new PlayException(CurrentTrick.Suit + " were lead. You can and must follow suit.");
+                    throw new PlayException(CurrentTrick.Suit + " were lead. You can and must follow suit.");
                 }
 
                 //We have a legal card from the correct player
                 hand.Remove(card);
                 CurrentTrick.AddCard(card, HotSeat);
+                //TODO Resharper says Table is redundant
                 OnCardHasBeenPlayed(new Table.CardHasBeenPlayedEventArgs(HotSeat, card));
                 if (IsOpeningLead())
                 {
@@ -460,8 +461,9 @@ namespace BridgeIt.Tables
             _tricks.Clear();
         }
 
-        private Seat GetDeclarer (IEnumerable<Call> calls, Contract contract)
+        private static Seat GetDeclarer (IEnumerable<Call> calls, Contract contract)
         {
+            //TODO: Resharper says possible multiple enumerations of calls
             Suit winningSuit = contract.Bid.Suit;
             Side winningSide = calls.LastBidder().GetSide();
             Call firstCall = calls.First(CallType.Bid, winningSuit, winningSide);
@@ -484,6 +486,7 @@ namespace BridgeIt.Tables
             StartDeal(NextSeat(Dealer));
         }
 
+        //FIXME - never used
         private void AbandonSession ()
         {
             OnDealHasBeenAbandoned();

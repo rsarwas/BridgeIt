@@ -59,6 +59,7 @@ namespace BridgeIt.Core
 			//Make Add private, remove default constructor, add constructor that requires 13 unique cards
 			if (cards == null)
 				throw new ArgumentNullException("cards");
+            //FIXME - multiple enumerations of enumerable
 			if (cards.Count() != MaxSize)
 				throw new ArgumentException("You must provide "+MaxSize+" cards for the hand.");
 			foreach (Card card in cards)

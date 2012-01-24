@@ -76,7 +76,7 @@ namespace BridgeIt.Core
 
         public override string ToString ()
         {
-            return Bid.ToString() + (Doubles == 0 ? "" : (Doubles == 1 ? " Doubled" : " Redoubled"));
+            return Bid + (Doubles == 0 ? "" : (Doubles == 1 ? " Doubled" : " Redoubled"));
         }
     }
 }

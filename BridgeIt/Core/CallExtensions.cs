@@ -15,7 +15,7 @@
 // // limitations under the License.
 // #endregion
 // 
-using System;
+
 using System.Collections.Generic;
 using System.Linq;
 
@@ -32,6 +32,7 @@ namespace BridgeIt.Core
 
         public static bool HasBidAndLastThreeArePasses (this IEnumerable<Call> calls)
         {
+            //FIXME - multiple enumerations
             Bid lastBid = calls.LastBid();
             return lastBid != null && calls.Last(3).Count(c => c.CallType == CallType.Pass) == 3;
         }
@@ -42,8 +43,9 @@ namespace BridgeIt.Core
             // Law 19 - "All doubles and redoubles are superseded by a
             // subsequent legal bid. If there is no subsequent bid,
             // scoring values are increased as provided in Law 81."
-            foreach (Call call in calls.Reverse<Call>())
-            {
+            //foreach (Call call in calls.Reverse<Call>())
+            foreach (Call call in calls.Reverse())
+                {
                 if (call.CallType == CallType.Redouble)
                     return 2;
                 if (call.CallType == CallType.Double)

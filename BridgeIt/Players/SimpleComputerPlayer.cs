@@ -28,24 +28,15 @@ namespace BridgeIt.Players
     public class SimpleComputerPlayer : IPlayer
     {
         // Private Data
-        Thread _thread;
         bool _stop;
         bool _timeToBid;
         bool _timeToPlay;
         bool _timeToPlayForDummy;
         bool _manageDummy;
-        Random r = new Random();
         Seat _mySeat;
         Table _table;
 
-        public Thread Thread
-        {
-            get { return _thread;}
-        }
-
-        public SimpleComputerPlayer ()
-        {
-        }
+        public Thread Thread { get; private set; }
 
         //FIXME Use ITable this by adding events to ITable
         public void JoinTable (Table table)
@@ -57,10 +48,10 @@ namespace BridgeIt.Players
             {
                 _mySeat = table.SitDown(this);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 UnsubscribeToMessages(table);
-                throw ex;
+                throw;
             }
             _table = table;
         }
@@ -72,30 +63,31 @@ namespace BridgeIt.Players
                 throw new InvalidOperationException("You can't start until you sitting at a table");
 
             Console.WriteLine("Simple Computer Player started by thread {0} @ {2} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
-            _thread = new Thread(new ThreadStart(Run));
-            _thread.IsBackground = true;
-            _thread.Start();
+            Thread = new Thread(Run) {IsBackground = true};
+            Thread.Start();
         }
 
 
         public void Stop ()
         {
-            if (_thread == null)
+            if (Thread == null)
                 throw new InvalidOperationException("This player has not been started");
 
-            if (!_thread.IsAlive)
+            if (!Thread.IsAlive)
                 throw new InvalidOperationException("This player has not been stopped and cannot be started");
 
             Console.WriteLine("SCP at seat {2} stopped by thread {0} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
             _stop = true;
         }
 
+        
         #region Methods required for interface
-        public void PlayNow (System.TimeSpan timelimit)
+        //FIXME - rethink the strategy for forcing a move
+        public void PlayNow (TimeSpan timelimit)
         {
             throw new NotImplementedException();
         }
-        public void PlayForDummyNow (IPlayer dummy, System.TimeSpan timelimit)
+        public void PlayForDummyNow (IPlayer dummy, TimeSpan timelimit)
         {
             throw new NotImplementedException();
         }
@@ -125,7 +117,7 @@ namespace BridgeIt.Players
                     catch (Exception ex)
                     {
                         Console.WriteLine("Call failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                        throw ex;
+                        throw;
                     }
                 }
                 if (_timeToPlay)
@@ -140,7 +132,7 @@ namespace BridgeIt.Players
                     catch (Exception ex)
                     {
                         Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                        throw ex;
+                        throw;
                     }
                 }
                 if (_timeToPlayForDummy)
@@ -155,7 +147,7 @@ namespace BridgeIt.Players
                     catch (Exception ex)
                     {
                         Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                        throw ex;
+                        throw;
                     }
                 }
             }
@@ -186,6 +178,11 @@ namespace BridgeIt.Players
 
         Call GetBestCall ()
         {
+            //FIXME - every player can't return a pass every time, or we go into a loop
+            //hand get longest suit, return 1 in longest suit
+            //If there is a bid, pass, else
+            //If getHand.CountHighCards() > 12
+            //return 1 in hand.LongestSuit()
             return new Call(_mySeat, CallType.Pass);
         }
 
@@ -194,12 +191,8 @@ namespace BridgeIt.Players
             //Play highest card from hand in suit that lead
             //otherwise play highest trump
             //otherwise play a random card
-            IEnumerable<Card> hand;
-            if (_timeToPlayForDummy)
-                    hand = _table.DummiesCards;
-            else
-                    hand = _table.GetHand(this);
-
+            IEnumerable<Card> hand = _timeToPlayForDummy ? _table.DummiesCards : _table.GetHand(this);
+            //FIXME - multiple enumerations of hand
             if (!_table.CurrentTrick.IsEmpty)
             {
                 var suitLead = _table.CurrentTrick.Cards.First().Suit;

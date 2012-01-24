@@ -50,7 +50,7 @@ namespace BridgeIt.Core
             _cards.Add(card);
             _players.Add(player);
 
-            _winner = WhoPlayed(GetHighestCard());
+            _winner = GetWinner();
             if (Suit == Suit.None)
                 Suit = card.Suit;
         }
