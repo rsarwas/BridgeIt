@@ -117,7 +117,7 @@ namespace BridgeIt.Players
                     catch (Exception ex)
                     {
                         Console.WriteLine("Call failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                        throw;
+                        //throw;
                     }
                 }
                 if (_timeToPlay)
@@ -132,7 +132,7 @@ namespace BridgeIt.Players
                     catch (Exception ex)
                     {
                         Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                        throw;
+                        //throw;
                     }
                 }
                 if (_timeToPlayForDummy)
@@ -147,7 +147,7 @@ namespace BridgeIt.Players
                     catch (Exception ex)
                     {
                         Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                        throw;
+                        //throw;
                     }
                 }
             }
@@ -179,10 +179,10 @@ namespace BridgeIt.Players
         Call GetBestCall ()
         {
             //FIXME - every player can't return a pass every time, or we go into a loop
-            //hand get longest suit, return 1 in longest suit
-            //If there is a bid, pass, else
-            //If getHand.CountHighCards() > 12
-            //return 1 in hand.LongestSuit()
+            bool noBid = _table.LastThreeCalls.Count(c => c.CallType == CallType.Bid) == 0;
+            IEnumerable<Card> hand = _table.GetHand(this);
+            if (noBid && hand.HighCardPoints() > 12)
+                return new Call(_mySeat, CallType.Bid, new Bid(1, hand.LongestSuit()));
             return new Call(_mySeat, CallType.Pass);
         }
 
@@ -273,7 +273,7 @@ namespace BridgeIt.Players
             if (_table.CurrentTrick.Done)
                 return; //wait for TrickHasBeenWon
 
-            if (e.Player == _mySeat.GetRightHandOpponent())
+            if (e.Player == _mySeat.GetRightHandOpponent() && _mySeat != _table.Dummy)
                 _timeToPlay = true;
 
             if (_manageDummy && e.Player == _table.Dummy.GetRightHandOpponent())

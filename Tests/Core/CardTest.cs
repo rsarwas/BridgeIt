@@ -38,6 +38,26 @@ namespace Tests.Core
 			Assert.AreNotEqual (card1, card3);
 			Assert.AreEqual (card1, card4);
 		}
+        [Test()]
+        public void HighPointTests ()
+        {
+            Card ace = new Card(Rank.Ace, Suit.Spades);
+            Card king = new Card(Rank.King, Suit.Hearts);
+            Card queen = new Card(Rank.Queen, Suit.Spades);
+            Card jack = new Card(Rank.Jack, Suit.Hearts);
+            Card ten = new Card(Rank.Ten, Suit.Spades);
+            Card nine = new Card(Rank.Nine, Suit.Hearts);
+            Card[] cards = new Card[]{ace, king, queen, jack, ten, nine};
+            Assert.AreEqual(cards.HighCardPoints(), 10);
+            Assert.AreEqual(cards.HighCardPoints(Suit.Hearts), 4);
+            Assert.AreEqual(cards.HighCardPoints(Suit.Spades), 6);
+            Assert.AreEqual(cards.HighCardPoints(Suit.Clubs), 0);
+            Assert.AreEqual((new Card[]{}).HighCardPoints(), 0);
+            Assert.AreEqual(cards.HighestInSuit(Suit.Hearts).Rank, Rank.King);
+            Assert.AreEqual(cards.HighestInSuit(Suit.Spades).Rank, Rank.Ace);
+            Assert.AreEqual(cards.LongestSuit(), Suit.Spades);
+        }
+
 	}
 }
 

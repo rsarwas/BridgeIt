@@ -38,26 +38,6 @@ namespace BridgeIt.Core
 			return suit == Suit.None;
 		}
 		
-		public static string PrintFormat (this IEnumerable<Card> cards)
-        {
-            if (cards == null)
-                return "<null>";
-
-            var sb = new StringBuilder();
-            foreach (var suit in Deck.Suits)
-            {
-                sb.AppendLine();
-                sb.Append(Card.SuitToGlyph(suit));
-                //TODO - investigate resharper comments
-                //suit: Access to modified closure; <Card,Rank> redundant; possible multiple enumerations of cards
-                //var suit1 = suit
-                //foreach (var card in cards.Where(c => c.Suit == suit1).OrderByDescending(c => c.Rank))
-                foreach (var card in cards.Where(c => c.Suit == suit).OrderByDescending<Card, Rank>(c => c.Rank))
-                        sb.Append(" " + Card.RankToString(card.Rank));
-            }
-            return sb.ToString();
-        }
-
         public static Seat GetRightHandOpponent (this Seat seat)
         {
             //Seat 0 is reserved for the null seat
@@ -115,21 +95,6 @@ namespace BridgeIt.Core
         {
             var itemList = items.ToList();
             return (itemList.Count <= n) ? itemList : itemList.GetRange(itemList.Count - n, n);
-        }
-
-        public static bool VoidOfSuit (this IEnumerable<Card> cards, Suit suit)
-        {
-            return !cards.Any(c => c.Suit == suit);
-        }
-
-        public static IEnumerable<Card> GetSuit (this IEnumerable<Card> cards, Suit suit)
-        {
-            return cards.Where(c => c.Suit == suit);
-        }
-
-        public static Card GetHighestInSuit (this IEnumerable<Card> cards, Suit suit)
-        {
-            return cards.GetSuit(suit).OrderByDescending(c => (int)c.Rank).First();
         }
 
 

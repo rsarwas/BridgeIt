@@ -150,7 +150,7 @@ namespace BridgeIt.Tables
         private readonly Queue<Seat> _openSeats = new Queue<Seat>(Seats);
         private readonly List<Call> _calls = new List<Call>(4);
         private readonly List<Trick> _tricks = new List<Trick>(Deck.Size / Seats.Length);
-
+        private readonly Seat _hotSeat;
 		
 		public Table()
 		{
@@ -161,11 +161,27 @@ namespace BridgeIt.Tables
 		public Seat Dealer {get; private set;}
 		public Seat Declarer {get; private set;}
 		public Seat Dummy {get; private set;}
-		public Seat HotSeat {get; private set;}
 		public Suit Trump {get; private set;}
 		public Contract Contract {get; private set;}
 		//public State? {get; private set;}
 		//public Status? Empty, partially full, full, dealing, bidding, playing
+
+        public Seat HotSeat
+        {
+            get
+            {
+                //We lock to make sure nobody is in the middle of a process that may change
+                //who is in the _hotseat
+                lock (_tableLock)
+                {
+                    return _hotSeat;
+                }
+            }
+            set
+            {
+                _hotSeat = value;
+            }
+        }
 
         //Law 66 - Inspection of Tricks
         //Declarer or either defender may, until a member of his side has
@@ -183,6 +199,26 @@ namespace BridgeIt.Tables
             get { return _calls.LastOrDefault(); }
         }
 
+        public bool AcceptingBids
+        {
+            //Not locked, so may change if you aren't in the hot seat
+            get
+            {
+                return _tricks.Count == 0;
+            }
+        }
+
+
+        public bool AcceptingCards
+        {
+            //Not locked, so may change if you aren't in the hot seat
+            get
+            {
+                return Declarer != Seat.None;
+            }
+        }
+
+        
         public bool DealOver
         {
             get
