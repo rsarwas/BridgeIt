@@ -150,7 +150,7 @@ namespace BridgeIt.Tables
         private readonly Queue<Seat> _openSeats = new Queue<Seat>(Seats);
         private readonly List<Call> _calls = new List<Call>(4);
         private readonly List<Trick> _tricks = new List<Trick>(Deck.Size / Seats.Length);
-        private readonly Seat _hotSeat;
+        private Seat _hotSeat;
 		
 		public Table()
 		{
@@ -177,7 +177,7 @@ namespace BridgeIt.Tables
                     return _hotSeat;
                 }
             }
-            set
+            private set
             {
                 _hotSeat = value;
             }
@@ -201,17 +201,17 @@ namespace BridgeIt.Tables
 
         public bool AcceptingBids
         {
-            //Not locked, so may change if you aren't in the hot seat
+            //Not locked, so may change after you readthis unless you are in the hot seat
             get
             {
-                return _tricks.Count == 0;
+                return Declarer == Seat.None && _hands[_players[Dealer]].Count == 13;
             }
         }
 
 
         public bool AcceptingCards
         {
-            //Not locked, so may change if you aren't in the hot seat
+            //Not locked, so may change after you readthis unless you are in the hot seat
             get
             {
                 return Declarer != Seat.None;

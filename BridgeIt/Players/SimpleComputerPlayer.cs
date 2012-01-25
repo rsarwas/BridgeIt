@@ -29,12 +29,13 @@ namespace BridgeIt.Players
     {
         // Private Data
         bool _stop;
-        bool _timeToBid;
-        bool _timeToPlay;
-        bool _timeToPlayForDummy;
+        //bool _timeToBid;
+        //bool _timeToPlay;
+        //bool _timeToPlayForDummy;
         bool _manageDummy;
         Seat _mySeat;
         Table _table;
+        bool _tableStateHasChanged;
 
         public Thread Thread { get; private set; }
 
@@ -105,49 +106,65 @@ namespace BridgeIt.Players
                 //These flags will be set by the delegates from the table messages
                 //these flags are cleared on success, but not on failure in the hopes that I might
                 //succeed after working on the game tree some more.
-                if (_timeToBid)
+
+                if (_tableStateHasChanged)
                 {
-                    Call call = GetBestCall();
-                    Console.WriteLine("SCP at Seat {0} called: {1}", _mySeat, call);
-                    try
+                    //TODO - validate this.
+                    //Could I check, not do anything, then stop checking, and miss my turn?
+                    _tableStateHasChanged = false;
+                    //_table.HotSeat won't change if I'm in the hotseat, until I do something.
+                    if (_table.HotSeat == _mySeat)
                     {
-                        _table.MakeCall(this, call);
-                        _timeToBid = false;
+                        if (_table.AcceptingBids)
+                        {
+                            Call call = GetBestCall();
+                            Console.WriteLine("SCP at Seat {0} called: {1}", _mySeat, call);
+                            try
+                            {
+                                _table.MakeCall(this, call);
+                                //_timeToBid = false;
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine("Call failed for SCP at Seat {0}: {1}", _mySeat, ex);
+                                //throw;
+                            }
+                        }
+                        if (_table.Dummy == _mySeat)
+                            continue;
+
+                        if (_table.AcceptingCards)
+                        {
+                            Card card = GetBestCard();
+                            Console.WriteLine("SCP at Seat {0} played {1}", _mySeat, card);
+                            try
+                            {
+                                _table.PlayCard(this, card);
+                                //_timeToPlay = false;
+                            }
+                            catch (Exception ex)
+                            {
+                                Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
+                                //throw;
+                            }
+                        }
                     }
-                    catch (Exception ex)
+                    //_manageDummy will not change
+                    //And Hotseat will not change if dummy is in the hotseat and I am managing dummy
+                    if (_manageDummy && _table.HotSeat == _table.Dummy)
                     {
-                        Console.WriteLine("Call failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                        //throw;
-                    }
-                }
-                if (_timeToPlay)
-                {
-                    Card card = GetBestCard();
-                    Console.WriteLine("SCP at Seat {0} played {1}", _mySeat, card);
-                    try
-                    {
-                        _table.PlayCard(this, card);
-                        _timeToPlay = false;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                        //throw;
-                    }
-                }
-                if (_timeToPlayForDummy)
-                {
-                    Card card = GetBestCard();
-                    Console.WriteLine("SCP at Seat {0} played {1} For Dummy", _mySeat, card);
-                    try
-                    {
-                        _table.PlayCard(this, card);
-                        _timeToPlayForDummy = false;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                        //throw;
+                        Card card = GetBestCard();
+                        Console.WriteLine("SCP at Seat {0} played {1} For Dummy", _mySeat, card);
+                        try
+                        {
+                            _table.PlayCard(this, card);
+                            //_timeToPlayForDummy = false;
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
+                            //throw;
+                        }
                     }
                 }
             }
@@ -191,7 +208,7 @@ namespace BridgeIt.Players
             //Play highest card from hand in suit that lead
             //otherwise play highest trump
             //otherwise play a random card
-            IEnumerable<Card> hand = _timeToPlayForDummy ? _table.DummiesCards : _table.GetHand(this);
+            IEnumerable<Card> hand = _table.HotSeat == _table.Dummy ? _table.DummiesCards : _table.GetHand(this);
             //FIXME - multiple enumerations of hand
             if (!_table.CurrentTrick.IsEmpty)
             {
@@ -247,37 +264,41 @@ namespace BridgeIt.Players
         void CardsHaveBeenDealt (object sender, EventArgs e)
         {
             Console.WriteLine("{1}: Cards have been dealt. Hand:{0}", ((Table)sender).GetHand(this).PrintFormat(), _mySeat);
-            if (_mySeat == _table.Dealer) _timeToBid = true;
+            //if (_mySeat == _table.Dealer) _timeToBid = true;
+            _tableStateHasChanged = true;
         }
 
 
         void CallHasBeenMade (object sender, Table.CallHasBeenMadeEventArgs e)
         {
-            if (e.Call.Bidder == _mySeat.GetRightHandOpponent())
-                _timeToBid = true;
+//            if (e.Call.Bidder == _mySeat.GetRightHandOpponent())
+//                _timeToBid = true;
             //Note if the call made completed bidding, I may try to bid (and get an exception) before I get the bidding complete message
+            _tableStateHasChanged = true;
          }
 
 
         void BiddingIsComplete (object sender, Table.BiddingIsCompleteEventArgs e)
         {
-            _timeToBid = false;
+//            _timeToBid = false;
             _manageDummy = e.Declarer == _mySeat;
-            if (e.Declarer == _mySeat.GetRightHandOpponent())
-                _timeToPlay = true;
+//            if (e.Declarer == _mySeat.GetRightHandOpponent())
+//                _timeToPlay = true;
+            _tableStateHasChanged = true;
         }
 
 
         void CardHasBeenPlayed (object sender, Table.CardHasBeenPlayedEventArgs e)
         {
-            if (_table.CurrentTrick.Done)
-                return; //wait for TrickHasBeenWon
-
-            if (e.Player == _mySeat.GetRightHandOpponent() && _mySeat != _table.Dummy)
-                _timeToPlay = true;
-
-            if (_manageDummy && e.Player == _table.Dummy.GetRightHandOpponent())
-                _timeToPlayForDummy = true;
+//            if (_table.CurrentTrick.Done)
+//                return; //wait for TrickHasBeenWon
+//
+//            if (e.Player == _mySeat.GetRightHandOpponent() && _mySeat != _table.Dummy)
+//                _timeToPlay = true;
+//
+//            if (_manageDummy && e.Player == _table.Dummy.GetRightHandOpponent())
+//                _timeToPlayForDummy = true;
+            _tableStateHasChanged = true;
         }
 
         void TrickHasBeenWon (object sender, Table.TrickHasBeenWonEventArgs e)
@@ -287,19 +308,24 @@ namespace BridgeIt.Players
             // If I am wrong, then my play will fail, and it will get sorted out when
             //I get the dealHasBeen Won Message
             //May be cleaner for the table to maintain a table state enumeration.
-            if (_table.DealOver)
-                return;
-            if (e.Winner == _mySeat)
-                _timeToPlay = true;
-            if (_manageDummy && e.Winner == _table.Dummy)
-                _timeToPlayForDummy = true;
+
+//            if (_table.DealOver)
+//                return;
+//            if (e.Winner == _mySeat)
+//                _timeToPlay = true;
+//            if (_manageDummy && e.Winner == _table.Dummy)
+//                _timeToPlayForDummy = true;
+            _tableStateHasChanged = true;
         }
 
 
         void DealHasBeenWon (object sender, Table.DealHasBeenWonEventArgs e)
         {
-            _timeToPlay = false;
-            _timeToPlayForDummy = false;
+//            _timeToPlay = false;
+//            _timeToPlayForDummy = false;
+            _tableStateHasChanged = true;
+
+            Console.WriteLine("\n\nGame Over!\n\n");
         }
 
      
@@ -311,9 +337,10 @@ namespace BridgeIt.Players
 
         void PlayerHasQuit (object sender, Table.PlayerHasQuitEventArgs e)
         {
-            _timeToBid = false;
-            _timeToPlay = false;
-            _timeToPlayForDummy = false;
+//            _timeToBid = false;
+//            _timeToPlay = false;
+//            _timeToPlayForDummy = false;
+            _tableStateHasChanged = true;
         }
 
      #endregion
