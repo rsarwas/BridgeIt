@@ -139,6 +139,7 @@ namespace BridgeIt.Tables
 {
 	public class Table : ITable
 	{
+        #region private fields
 
         public static readonly Seat[] Seats = new [] {Seat.South, Seat.West, Seat.North, Seat.East};
 
@@ -151,13 +152,10 @@ namespace BridgeIt.Tables
         private readonly List<Call> _calls = new List<Call>(4);
         private readonly List<Trick> _tricks = new List<Trick>(Deck.Size / Seats.Length);
         private Seat _hotSeat;
-		
-		public Table()
-		{
-			//TODO - isn't this redundant if I am using logical init values
-            ResetSession ();
-		}
 
+        #endregion
+
+        #region public properties
 		public Seat Dealer {get; private set;}
 		public Seat Declarer {get; private set;}
 		public Seat Dummy {get; private set;}
@@ -255,6 +253,8 @@ namespace BridgeIt.Tables
             get { return _calls.Last(3);}
         }
 
+        #endregion
+
         //TODO - Law41 - Declarer, before making any play, or either defender,
         // at his first turn to play, may require a restatement of the auction
         // in its entirety.
@@ -305,18 +305,6 @@ namespace BridgeIt.Tables
                 OnSessionHasBegun(new SessionHasBegunEventArgs(dealer));
                 StartDeal(dealer);
             }
-        }
-
-
-        private void StartDeal (Seat dealer)
-        {
-            ResetDeal(dealer);
-            OnDealHasBegun(new DealHasBegunEventArgs(dealer));
-            var deck = new Deck();
-            deck.Shuffle();
-            Deal(deck);
-            OnCardsHaveBeenDealt();
-            //_players[dealer].PlaceBid();
         }
 
 
@@ -442,23 +430,13 @@ namespace BridgeIt.Tables
                         // Law 44 - "The player who has won the trick leads to the next trick."
                         HotSeat = CurrentTrick.Winner;
                         _tricks.Add(new Trick(Trump));
-                        //_players[HotSeat].Play();
                     }
                 }
                 else
                 {
                     HotSeat = NextSeat(HotSeat);
-//                    if (HotSeat == Dummy)
-//                        _players[Declarer].PlayForDummy(_players[Dummy]);
-//                    else
-//                        _players[HotSeat].Play();
                 }
             }
-        }
-
-        private bool IsOpeningLead ()
-        {
-            return _tricks.Count == 1 && CurrentTrick.Cards.Count() == 1;
         }
 
 		public void Quit (IPlayer player)
@@ -479,6 +457,7 @@ namespace BridgeIt.Tables
 		
 		#endregion
 
+        #region Private methods
         private void ResetSession ()
         {
             ResetDeal();
@@ -496,6 +475,24 @@ namespace BridgeIt.Tables
             _calls.Clear();
             _tricks.Clear();
         }
+
+        private void StartDeal (Seat dealer)
+        {
+            ResetDeal(dealer);
+            OnDealHasBegun(new DealHasBegunEventArgs(dealer));
+            var deck = new Deck();
+            deck.Shuffle();
+            Deal(deck);
+            OnCardsHaveBeenDealt();
+            //_players[dealer].PlaceBid();
+        }
+
+
+        private bool IsOpeningLead ()
+        {
+            return _tricks.Count == 1 && CurrentTrick.Cards.Count() == 1;
+        }
+
 
         private static Seat GetDeclarer (IEnumerable<Call> calls, Contract contract)
         {
@@ -595,7 +592,9 @@ namespace BridgeIt.Tables
 			foreach (var place in Seats)
 				_hands[_players[place]] = new Hand(hands[place]);
 		}
-		
+
+		#endregion
+
 		#region Events
 
         //All of these are Fire and Forget messages

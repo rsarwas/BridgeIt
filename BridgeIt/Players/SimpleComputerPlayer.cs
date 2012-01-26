@@ -109,9 +109,11 @@ namespace BridgeIt.Players
 
                 if (_tableStateHasChanged)
                 {
+                    //?? Do this after I have placed my bid/played my card, to hopefully cancel the triggered state change
                     //TODO - validate this.
                     //Could I check, not do anything, then stop checking, and miss my turn?
                     _tableStateHasChanged = false;
+
                     //_table.HotSeat won't change if I'm in the hotseat, until I do something.
                     if (_table.HotSeat == _mySeat)
                     {
@@ -122,25 +124,22 @@ namespace BridgeIt.Players
                             try
                             {
                                 _table.MakeCall(this, call);
-                                //_timeToBid = false;
                             }
                             catch (Exception ex)
                             {
                                 Console.WriteLine("Call failed for SCP at Seat {0}: {1}", _mySeat, ex);
                                 //throw;
                             }
+                            continue;  //DO NOT try to play a card after we have bid
                         }
-                        if (_table.Dummy == _mySeat)
-                            continue;
 
-                        if (_table.AcceptingCards)
+                        if (_table.AcceptingCards && _mySeat != _table.Dummy)
                         {
                             Card card = GetBestCard();
                             Console.WriteLine("SCP at Seat {0} played {1}", _mySeat, card);
                             try
                             {
                                 _table.PlayCard(this, card);
-                                //_timeToPlay = false;
                             }
                             catch (Exception ex)
                             {
@@ -158,7 +157,6 @@ namespace BridgeIt.Players
                         try
                         {
                             _table.PlayCard(this, card);
-                            //_timeToPlayForDummy = false;
                         }
                         catch (Exception ex)
                         {
@@ -210,6 +208,7 @@ namespace BridgeIt.Players
             //otherwise play a random card
             IEnumerable<Card> hand = _table.HotSeat == _table.Dummy ? _table.DummiesCards : _table.GetHand(this);
             //FIXME - multiple enumerations of hand
+            //FIXME - Current Trick could be null after game has ended, and I am still thinking game on.
             if (!_table.CurrentTrick.IsEmpty)
             {
                 var suitLead = _table.CurrentTrick.Cards.First().Suit;
