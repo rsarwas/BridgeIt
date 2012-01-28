@@ -27,8 +27,14 @@ namespace Tests.Core
 	{
 		[Test()]
 		public void Test1 ()
-		{
-		}
+        {
+            Score score = new Score(contract, tricks, vulnerability);
+            int score1 = score.GetDeclarersGameScore();
+            int score2 = score.GetDeclarersBonusScore();
+            int score3 = score.GetDefendersScore();
+            bool game = score.DidDeclarerMakeGame;
+            score.ToString();
+        }
 
 		[Test()]
 		public void Test2 ()
