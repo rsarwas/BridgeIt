@@ -37,7 +37,7 @@ namespace BridgeIt.Players
         Table _table;
         bool _tableStateHasChanged;
 
-        public Thread Thread { get; private set; }
+        private Thread Thread { get; set; }
 
         //FIXME Use ITable this by adding events to ITable
         public void JoinTable (Table table)
@@ -58,7 +58,7 @@ namespace BridgeIt.Players
         }
 
 
-        public void Start ()
+        public Thread Start ()
         {
             if (_table == null)
                 throw new InvalidOperationException("You can't start until you sitting at a table");
@@ -66,6 +66,7 @@ namespace BridgeIt.Players
             Console.WriteLine("Simple Computer Player started by thread {0} @ {2} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
             Thread = new Thread(Run) {IsBackground = true};
             Thread.Start();
+            return Thread;
         }
 
 
@@ -84,11 +85,15 @@ namespace BridgeIt.Players
         
         #region Methods required for interface
         //FIXME - rethink the strategy for forcing a move
+        public void PlaceBidNow (TimeSpan timelimit)
+        {
+            throw new NotImplementedException();
+        }
         public void PlayNow (TimeSpan timelimit)
         {
             throw new NotImplementedException();
         }
-        public void PlayForDummyNow (IPlayer dummy, TimeSpan timelimit)
+        public void PlayForDummyNow (TimeSpan timelimit)
         {
             throw new NotImplementedException();
         }
@@ -115,45 +120,43 @@ namespace BridgeIt.Players
                     _tableStateHasChanged = false;
 
                     //_table.HotSeat won't change if I'm in the hotseat, until I do something.
-                    if (_table.HotSeat == _mySeat)
+                    if (_table.AllowingBidFrom(_mySeat))
                     {
-                        if (_table.AcceptingBids)
+                        Call call = GetBestCall();
+                        //Console.WriteLine("SCP at Seat {0} called: {1}", _mySeat, call);
+                        try
                         {
-                            Call call = GetBestCall();
-                            Console.WriteLine("SCP at Seat {0} called: {1}", _mySeat, call);
-                            try
-                            {
-                                _table.MakeCall(this, call);
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine("Call failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                                //throw;
-                            }
-                            continue;  //DO NOT try to play a card after we have bid
+                            _table.MakeCall(this, call);
                         }
-
-                        if (_table.AcceptingCards && _mySeat != _table.Dummy)
+                        catch (Exception ex)
                         {
-                            Card card = GetBestCard();
-                            Console.WriteLine("SCP at Seat {0} played {1}", _mySeat, card);
-                            try
-                            {
-                                _table.PlayCard(this, card);
-                            }
-                            catch (Exception ex)
-                            {
-                                Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
-                                //throw;
-                            }
+                            Console.WriteLine("Call failed for SCP at Seat {0}: {1}", _mySeat, ex);
+                            //throw;
                         }
+                        continue;  //DO NOT try to play a card after we have bid
                     }
-                    //_manageDummy will not change
-                    //And Hotseat will not change if dummy is in the hotseat and I am managing dummy
-                    if (_manageDummy && _table.HotSeat == _table.Dummy)
+
+                    if (_table.AllowingCardFrom(_mySeat))
                     {
                         Card card = GetBestCard();
-                        Console.WriteLine("SCP at Seat {0} played {1} For Dummy", _mySeat, card);
+                        //Console.WriteLine("SCP at Seat {0} played {1}", _mySeat, card);
+                        try
+                        {
+                            _table.PlayCard(this, card);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
+                            //throw;
+                        }
+                    }
+
+                    //_manageDummy will not change
+                    //And Hotseat will not change if dummy is in the hotseat and I am managing dummy
+                    if (_table.AllowingCardFromDummyBy(_mySeat))
+                    {
+                        Card card = GetBestCard();
+                        //Console.WriteLine("SCP at Seat {0} played {1} For Dummy", _mySeat, card);
                         try
                         {
                             _table.PlayCard(this, card);
@@ -174,7 +177,7 @@ namespace BridgeIt.Players
         {
              UnsubscribeToMessages(_table);
              _table.Quit(this);
-             Console.WriteLine("SCP at Seat {0} quit the table", _mySeat);
+             //Console.WriteLine("SCP at Seat {0} quit the table", _mySeat);
              _table = null;
              _mySeat = Seat.None;
         }
@@ -262,7 +265,7 @@ namespace BridgeIt.Players
         //In real AI, I will update the game tree with info from these messages.
         void CardsHaveBeenDealt (object sender, EventArgs e)
         {
-            Console.WriteLine("{1}: Cards have been dealt. Hand:{0}", ((Table)sender).GetHand(this).PrintFormat(), _mySeat);
+            //Console.WriteLine("{1}: Cards have been dealt. Hand:{0}", ((Table)sender).GetHand(this).PrintFormat(), _mySeat);
             //if (_mySeat == _table.Dealer) _timeToBid = true;
             _tableStateHasChanged = true;
         }

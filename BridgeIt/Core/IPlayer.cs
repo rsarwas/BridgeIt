@@ -45,15 +45,18 @@ a play strategy as soon as the hand is received.
 
 */
 
+using BridgeIt.Tables;
+
 namespace BridgeIt.Core
 {
 	public interface IPlayer
 	{
+        void JoinTable (Table table);
 		//void PlaceBid();
-		//void PlaceBidNow(System.TimeSpan timelimit);
+		void PlaceBidNow(System.TimeSpan timelimit);
 		//void Play();
 		void PlayNow(System.TimeSpan timelimit);
 		//void PlayForDummy(IPlayer dummy);
-		void PlayForDummyNow(IPlayer dummy, System.TimeSpan timelimit);
+		void PlayForDummyNow(System.TimeSpan timelimit);
 	}
 }

@@ -197,6 +197,33 @@ namespace BridgeIt.Tables
             get { return _calls.LastOrDefault(); }
         }
 
+        private bool IsBiddingPhase { get {return Contract == null && _hands.Count == 4;}}
+        private bool IsPlayPhase { get {return Contract != null && _hands.Count == 4;}}
+
+        public bool AllowingBidFrom(Seat seat)
+        {
+            lock (_tableLock)
+            {
+                return IsBiddingPhase && _hotSeat == seat;
+            }
+        }
+
+        public bool AllowingCardFrom(Seat seat)
+        {
+            lock (_tableLock)
+            {
+                return IsPlayPhase && _hotSeat == seat && seat != Dummy;
+            }
+        }
+
+        public bool AllowingCardFromDummyBy(Seat seat)
+        {
+            lock (_tableLock)
+            {
+                return IsPlayPhase && seat == Declarer && _hotSeat == Dummy ;
+            }
+        }
+
         public bool AcceptingBids
         {
             //Not locked, so may change after you readthis unless you are in the hot seat
@@ -472,6 +499,7 @@ namespace BridgeIt.Tables
             HotSeat = Dealer;
             Trump = Suit.None;
             Contract = null;
+            _hands.Clear();
             _calls.Clear();
             _tricks.Clear();
         }
@@ -484,7 +512,6 @@ namespace BridgeIt.Tables
             deck.Shuffle();
             Deal(deck);
             OnCardsHaveBeenDealt();
-            //_players[dealer].PlaceBid();
         }
 
 
@@ -523,7 +550,8 @@ namespace BridgeIt.Tables
         private void AbandonSession ()
         {
             OnDealHasBeenAbandoned();
-            OnSessionHasEnded(new Table.SessionHasEndedEventArgs(Side.None, new Score()));
+            var score = new Score(Declarer,Contract,_tricks,true);
+            OnSessionHasEnded(new Table.SessionHasEndedEventArgs(Side.None, score));
             ResetSession();
         }
 
@@ -532,7 +560,8 @@ namespace BridgeIt.Tables
         {
             //Fixme - finish
             //determine winning team, and score
-            OnDealHasBeenWon(new Table.DealHasBeenWonEventArgs(Side.None, new Score()));
+            var score = new Score(Declarer,Contract,_tricks,true);
+            OnDealHasBeenWon(new Table.DealHasBeenWonEventArgs(Side.None, score));
             if (true)
                 StartDeal(NextSeat(Dealer));
             else
@@ -543,7 +572,8 @@ namespace BridgeIt.Tables
         private void FinishSession ()
         {
             //Fixme - finish
-            OnSessionHasEnded(new Table.SessionHasEndedEventArgs(Side.None, new Score()));
+            var score = new Score(Declarer,Contract,_tricks,true);
+            OnSessionHasEnded(new Table.SessionHasEndedEventArgs(Side.None, score));
             ResetSession();
         }
 

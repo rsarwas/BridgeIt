@@ -19,7 +19,7 @@
 //using BridgeIt.Core;
 using BridgeIt.Players;
 using BridgeIt.Tables;
-//using System.Threading;
+using System.Threading;
 using System.Collections.Generic;
 
 namespace ConsoleApp
@@ -29,23 +29,23 @@ namespace ConsoleApp
 		public static void Main (string[] args)
         {
             //List<SimpleComputerPlayer> players = new List<SimpleComputerPlayer>();
-            var players = new List<SimpleComputerPlayer>();
+            var threads = new List<Thread>();
             Table table = new ContractTable();
-            for (int i = 0; i < Table.Seats.Length; i++ )
+            for (int i = 0; i < Table.Seats.Length-1; i++ )
             //foreach (Seat seat in Table.Seats)
             {
                 //seat is not used
                 //(new ConsolePlayer(Console.In, Console.Out)).JoinTable(table);
                 var p = new SimpleComputerPlayer();
                 p.JoinTable(table);
-                p.Start();
-                players.Add(p);
+                threads.Add(p.Start());
             }
-
+            var ph = new ConsolePlayer(System.Console.In, System.Console.Out);
+            ph.JoinTable(table);
             table.StartSession();
             
-            foreach (var p in players)
-                p.Thread.Join();
+            foreach (var t in threads)
+                t.Join();
         }
 	}
 }
