@@ -97,6 +97,14 @@ namespace BridgeIt.Core
         }
 
 
+        public static string Print (this IEnumerable<Card> cards)
+        {
+            if (cards == null)
+                return "<null>";
+
+            return cards.Aggregate("", (t,c) => t + " " + c.ToGlyphString());
+        }
+
         public static string PrintFormat (this IEnumerable<Card> cards)
         {
             if (cards == null)

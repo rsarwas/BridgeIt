@@ -18,28 +18,37 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 
 namespace BridgeIt.Core
 {
 	public class Score
 	{
 
-        private Seat _declarer;
-        private Contract _contract;
         private List<Trick> _tricks;
         private bool _vulnerable;
 
-        public Score (Seat declarer, Contract contract, IEnumerable<Trick> tricks, bool vulnerable)
+
+        public Score (Seat declarer, Contract contract, IEnumerable<Trick> tricks, Vulnerability vulnerability)
         {
             //FIXME add error checking
-            _declarer = declarer;
-            _contract = contract;
+            Declarer = declarer;
+            Contract = contract;
+            Vulnerability = vulnerability;
             _tricks = tricks.ToList();
-            _vulnerable = vulnerable;
+            _vulnerable = Declarer.IsVulnerable(vulnerability);
             TricksTaken = GetTricksTaken();
             TricksDefeated = contract.Bid.Tricks - TricksTaken; //todo limit to positive numbers ??
             ContractScore = GetContractScore();
         }
+
+        public Seat Declarer { get; private set; }
+
+        public Contract Contract { get; private set; }
+
+        public Vulnerability Vulnerability { get; private set; }
+
+        public IEnumerable<Trick> Tricks { get {return _tricks.ToList(); } }
 
         public int TricksTaken { get; private set; }
 
@@ -47,26 +56,18 @@ namespace BridgeIt.Core
 
         public int ContractScore { get; private set; }
 
+        public bool MadeContract { get { return Contract.Bid.Tricks <= TricksTaken; } }
 
-        private int GetTricksTaken ()
-        {
-            int count = _tricks.Sum(t => t.Winner.GetSide() == _declarer.GetSide() ? 1 : 0);
-            return count - 6;
-            //Todo: limit to positive numbers ???
-        }
+        public bool PartScore { get { return ContractScore < 100; } }
 
-        private int GetContractScore ()
-        {
-            int score = 0;
-            score += 20 * TricksBidAndMadeInMinorSuitContract * Doubler;
-            score += 30 * TricksBidAndMadeInMajorSuitContract * Doubler;
-            score += 30 * TricksBidAndMadeInNoTrumpContract * Doubler;
-            score += 10 * FirstTrickBidAndMadeInNoTrumpContract * Doubler;
-            return score;
-        }
+        public bool Game { get { return 100 <= ContractScore; } }
+
+        public bool SmallSlam {get { return TricksTaken == 6; } }
+
+        public bool GrandSlam { get { return TricksTaken == 7; } }
 
 
-        private int GetLevelBonus ()
+        public int GetLevelBonus ()
         {
             if (PartScore)
                 return 50;
@@ -84,14 +85,14 @@ namespace BridgeIt.Core
         public int GetInsult ()
         {
             if (MadeContract)
-                return  _contract.Doubles * 50;
+                return  Contract.Doubles * 50;
             return 0;
         }
 
 
         public int GetOverTrickPoints ()
         {
-            switch (_contract.Doubles)
+            switch (Contract.Doubles)
             {
                 case 0:
                     int score = 0;
@@ -118,7 +119,7 @@ namespace BridgeIt.Core
                 return 0;
 
             int score = 0;
-            switch (_contract.Doubles)
+            switch (Contract.Doubles)
             {
                 case 0:
                     if (_vulnerable)
@@ -153,11 +154,62 @@ namespace BridgeIt.Core
             }
         }
 
+        #region overrides
+
+        public override string ToString ()
+        {
+            //Declarers (x) made x tricks, defenders (y) made y tricks.
+            //The contract was (not) made by/plus x/y tricks under/over
+            //
+            StringBuilder sb = new StringBuilder();
+            sb.Append(string.Format("Declarers ({0}) made {1} trick{2}.  ",
+                                        Declarer.GetSide(),TricksTaken,TricksTaken == 1 ? "" : "s"));
+            sb.AppendLine(string.Format("Defenders ({0}) made {1} trick{2}.",
+                                        Declarer.GetSide().OtherSide()));
+            if (MadeContract)
+            {
+                if (TricksOverContract == 0)
+                    sb.AppendLine(string.Format("The contract({0}) was made exactly.", Contract));
+                else
+                    sb.AppendLine(string.Format("The contract({0}) was made with {1} overtrick{2}.",
+                                  Contract, TricksOverContract, TricksOverContract == 1 ? "" : "s"));
+            }
+            else
+                    sb.AppendLine(string.Format("The contract({0}) was defeated by {1} undertrick{2}.",
+                                  Contract, TricksUnderContract, TricksUnderContract == 1 ? "" : "s"));
+            //FIXME - display better, give totals, make sure it is correct
+            sb.AppendLine(string.Format("Points for Declarer: Contract:{0} OverTricks:{1} Level Bonus:{2} Insults:{3}",
+                                        ContractScore,GetOverTrickPoints(), GetLevelBonus(), GetInsult()));
+            sb.AppendLine(string.Format("Points for Defender {0}",GetPenalties()));
+            return sb.ToString();
+        }
+
+        #endregion
+
+        #region private methods
+
+        private int GetTricksTaken ()
+        {
+            int count = _tricks.Sum(t => t.Winner.GetSide() == Declarer.GetSide() ? 1 : 0);
+            return count - 6;
+            //Todo: limit to positive numbers ???
+        }
+
+        private int GetContractScore ()
+        {
+            int score = 0;
+            score += 20 * TricksBidAndMadeInMinorSuitContract * Doubler;
+            score += 30 * TricksBidAndMadeInMajorSuitContract * Doubler;
+            score += 30 * TricksBidAndMadeInNoTrumpContract * Doubler;
+            score += 10 * FirstTrickBidAndMadeInNoTrumpContract * Doubler;
+            return score;
+        }
+
         private int Doubler
         {
             get
             {
-                return _contract.Doubles == 0 ? 1 : 2 * _contract.Doubles;
+                return Contract.Doubles == 0 ? 1 : 2 * Contract.Doubles;
             }
         }
 
@@ -166,7 +218,7 @@ namespace BridgeIt.Core
         {
             get
             {
-                if (_contract.Bid.Suit.IsMinor())
+                if (Contract.Bid.Suit.IsMinor())
                     return TricksBidAndMade;
                 return 0;
             }
@@ -177,7 +229,7 @@ namespace BridgeIt.Core
         {
             get
             {
-                if (_contract.Bid.Suit.IsMajor())
+                if (Contract.Bid.Suit.IsMajor())
                     return TricksBidAndMade;
                 return 0;
             }
@@ -187,7 +239,7 @@ namespace BridgeIt.Core
         {
             get
             {
-                if (_contract.Bid.Suit == Suit.NoTrump)
+                if (Contract.Bid.Suit == Suit.NoTrump)
                     return TricksBidAndMade;
                 return 0;
             }
@@ -197,7 +249,7 @@ namespace BridgeIt.Core
         {
             get
             {
-                if (_contract.Bid.Suit != Suit.NoTrump)
+                if (Contract.Bid.Suit != Suit.NoTrump)
                     return 0;
                 return TricksBidAndMade > 1 ? 1 : 0;
             }
@@ -208,7 +260,7 @@ namespace BridgeIt.Core
             get
             {
                 if (MadeContract)
-                    return _contract.Bid.Tricks;
+                    return Contract.Bid.Tricks;
                 else
                     return TricksTaken;
             }
@@ -218,7 +270,7 @@ namespace BridgeIt.Core
         {
             get
             {
-                if (_contract.Bid.Suit.IsMinor())
+                if (Contract.Bid.Suit.IsMinor())
                     return TricksOverContract;
                 return 0;
             }
@@ -229,7 +281,7 @@ namespace BridgeIt.Core
         {
             get
             {
-                if (_contract.Bid.Suit.IsMajor())
+                if (Contract.Bid.Suit.IsMajor())
                     return TricksOverContract;
                 return 0;
             }
@@ -239,7 +291,7 @@ namespace BridgeIt.Core
         {
             get
             {
-                if (_contract.Bid.Suit == Suit.NoTrump)
+                if (Contract.Bid.Suit == Suit.NoTrump)
                     return TricksOverContract;
                 return 0;
             }
@@ -251,7 +303,7 @@ namespace BridgeIt.Core
             get
             {
                 if (MadeContract)
-                    return TricksTaken - _contract.Bid.Tricks;
+                    return TricksTaken - Contract.Bid.Tricks;
                 else
                     return 0;
             }
@@ -262,7 +314,7 @@ namespace BridgeIt.Core
         {
             get
             {
-                return MadeContract ? 0 : _contract.Bid.Tricks - TricksTaken;
+                return MadeContract ? 0 : Contract.Bid.Tricks - TricksTaken;
             }
         }
 
@@ -290,21 +342,7 @@ namespace BridgeIt.Core
             }
         }
 
-
-        public bool MadeContract { get { return _contract.Bid.Tricks <= TricksTaken; } }
-
-        public bool PartScore { get { return ContractScore < 100; } }
-
-        public bool Game { get { return 100 <= ContractScore; } }
-
-        public bool SmallSlam {get { return TricksTaken == 6; } }
-
-        public bool GrandSlam { get { return TricksTaken == 7; } }
-
-        public override string ToString ()
-        {
-            return string.Format ("[Score]");
-        }
+        #endregion
 	}
 }
 

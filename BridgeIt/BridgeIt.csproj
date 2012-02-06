@@ -59,6 +59,7 @@
     <Compile Include="Core\TableState.cs" />
     <Compile Include="Players\SimpleComputerPlayer.cs" />
     <Compile Include="Core\CardExtensions.cs" />
+    <Compile Include="Core\Vulnerability.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <ItemGroup>

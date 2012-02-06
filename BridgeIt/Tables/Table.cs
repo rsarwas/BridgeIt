@@ -280,6 +280,31 @@ namespace BridgeIt.Tables
             get { return _calls.Last(3);}
         }
 
+        public void SwapPlayers(IPlayer player1, IPlayer player2)
+        {
+            lock (_tableLock)
+            {
+                if (player1 == null)
+                    throw new ArgumentNullException("player1");
+
+                if (!_seats.ContainsKey(player1))
+                    throw new CallException("Player1 is not seated at the table");
+
+                if (player2 == null)
+                    throw new ArgumentNullException("player2");
+
+                if (!_seats.ContainsKey(player2))
+                    throw new CallException("Player2 is not seated at the table");
+
+                Seat seat1 = _seats[player1];
+                Seat seat2 = _seats[player2];
+                _seats[player1] = seat2;
+                _seats[player2] = seat1;
+                _players[seat1] = player2;
+                _players[seat2] = player1;
+            }
+        }
+
         #endregion
 
         //TODO - Law41 - Declarer, before making any play, or either defender,
@@ -550,7 +575,9 @@ namespace BridgeIt.Tables
         private void AbandonSession ()
         {
             OnDealHasBeenAbandoned();
-            var score = new Score(Declarer,Contract,_tricks,true);
+            //Fixme - replace Vulnerability.Neither
+            //FIXME keep track of scores to declare leader/winner
+            var score = new Score(Declarer,Contract,_tricks,Vulnerability.Neither);
             OnSessionHasEnded(new Table.SessionHasEndedEventArgs(Side.None, score));
             ResetSession();
         }
@@ -558,10 +585,10 @@ namespace BridgeIt.Tables
 
         private void FinishDeal ()
         {
-            //Fixme - finish
+            //Fixme - replace Vulnerability.Neither
             //determine winning team, and score
-            var score = new Score(Declarer,Contract,_tricks,true);
-            OnDealHasBeenWon(new Table.DealHasBeenWonEventArgs(Side.None, score));
+            var score = new Score(Declarer,Contract,_tricks,Vulnerability.Neither);
+            OnDealHasBeenWon(new Table.DealHasBeenWonEventArgs(score));
             if (true)
                 StartDeal(NextSeat(Dealer));
             else
@@ -571,8 +598,9 @@ namespace BridgeIt.Tables
 
         private void FinishSession ()
         {
-            //Fixme - finish
-            var score = new Score(Declarer,Contract,_tricks,true);
+            //Fixme - replace Vulnerability.Neither
+            //FIXME keep track of scores to declare leader/winner
+            var score = new Score(Declarer,Contract,_tricks,Vulnerability.Neither);
             OnSessionHasEnded(new Table.SessionHasEndedEventArgs(Side.None, score));
             ResetSession();
         }
@@ -588,7 +616,6 @@ namespace BridgeIt.Tables
             Dummy = NextSeat(HotSeat);
             _calls.Clear();
             _tricks.Add(new Trick(Trump));
-            //_players[HotSeat].Play();
         }
 
 
@@ -865,13 +892,11 @@ namespace BridgeIt.Tables
 		#region DealHasBeenWon Event
 		public class DealHasBeenWonEventArgs : EventArgs
 		{
-			public DealHasBeenWonEventArgs(Side team, Score score)
+			public DealHasBeenWonEventArgs(Score score)
 			{
-				Winners = team;
 				Score = score;
 			}
-			
-			public Side Winners { get; private set; }
+
 			public Score Score { get; private set; }
 		}
 

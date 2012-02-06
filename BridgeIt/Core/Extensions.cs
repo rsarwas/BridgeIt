@@ -74,10 +74,30 @@ namespace BridgeIt.Core
                     return Side.NorthSouth;
                 case Seat.East:
                 case Seat.West:
-                    return Side.WestEast;
+                    return Side.EastWest;
                 default:
                     throw new ArgumentException("Seat of '" + seat + "' not recognized.");
             }
+        }
+
+        public static Side OtherSide(this Side side)
+        {
+            switch (side)
+            {
+                case Side.None:
+                    return Side.None;
+                case Side.EastWest:
+                    return Side.NorthSouth;
+                case Side.NorthSouth:
+                    return Side.EastWest;
+                default:
+                    throw new ArgumentException("Side of '" + side + "' not recognized.");
+            }
+        }
+
+        public static Side OtherSide(this Seat seat)
+        {
+            return seat.GetSide().OtherSide();
         }
 
         /// <summary>
@@ -97,6 +117,23 @@ namespace BridgeIt.Core
             return (itemList.Count <= n) ? itemList : itemList.GetRange(itemList.Count - n, n);
         }
 
+        public static bool IsVulnerable(this Seat seat, Vulnerability vulnerability)
+        {
+            return seat.GetSide().IsVulnerable(vulnerability);
+        }
+
+        public static bool IsVulnerable(this Side side, Vulnerability vulnerability)
+        {
+            if (vulnerability == Vulnerability.Both)
+                return true;
+            if (vulnerability == Vulnerability.Neither)
+                return false;
+            if (vulnerability == Vulnerability.NorthSouth)
+                return side == Side.NorthSouth;
+            if (vulnerability == Vulnerability.EastWest)
+                return side == Side.EastWest;
+            throw new ArgumentException("Vulnerability of '" + vulnerability + "' not recognized.");
+        }
 
 	}
 }

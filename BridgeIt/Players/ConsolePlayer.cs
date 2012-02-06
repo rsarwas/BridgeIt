@@ -51,6 +51,8 @@ using BridgeIt.Tables;
 using BridgeIt.Core;
 using System;
 using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 
 //FIXME - allow for q (quit) and ?/h (help) at all request for input
 
@@ -292,12 +294,20 @@ namespace BridgeIt.Players
                 Play();
             if (table.AllowingCardFromDummyBy(_seat))
                 PlayForDummy();
+            cards.Clear();
 		}
+
+        private readonly List<Card> cards = new List<Card>(4);
 
         void CardHasBeenPlayed (object sender, Table.CardHasBeenPlayedEventArgs e)
         {
             //Out.WriteLine("{2}: Card has been played. Player:{0}, Card:{1}", e.Player, e.Card, _seat);
-            Out.WriteLine("{0} played {1}", e.Player, e.Card.ToGlyphString(), _seat);
+            cards.Add(e.Card);
+            if (cards.Count == 1)
+            Out.WriteLine("{0} Lead {1}", e.Player, e.Card.ToGlyphString(), _seat);
+else
+            Out.WriteLine("{0} played {1} - Trick: {2}", e.Player, e.Card.ToGlyphString(), cards.Print());
+
             var table = (Table)sender;
             if (table.AllowingCardFrom(_seat))
                 Play();
@@ -317,26 +327,22 @@ namespace BridgeIt.Players
 		{
             //Out.WriteLine("{2}: Trick has been won. Winner:{0}, Trick:{1}", e.Winner, e.Trick, _seat);
             Out.WriteLine("{0} won trick {1}", e.Winner, e.Trick, _seat);
-            var table = (Table)sender;
-            if (table.AllowingCardFrom(_seat))
-                Play();
-            if (table.AllowingCardFromDummyBy(_seat))
-                PlayForDummy();
+            cards.Clear();
 		}
 		
 		void DealHasBeenWon (object sender, Table.DealHasBeenWonEventArgs e)
 		{
-			Out.WriteLine("{2}: Deal has been won.  Winning Team:{0}, Score:{1}", e.Winners, e.Score, _seat);
+			Out.WriteLine("Deal is finished.  The score is:\n{1}", e.Score);
 		}
 		
 		void SessionHasEnded (object sender, Table.SessionHasEndedEventArgs e)
 		{
-			Out.WriteLine("{2}: Session has been won.  Winning Team:{0}, Score:{1}", e.Winners, e.Score, _seat);
+			Out.WriteLine("{Session has been won.  Winning Team:{0}, Score:{1}", e.Winners, e.Score);
 		}
 		
 		void PlayerHasQuit(object sender, Table.PlayerHasQuitEventArgs e)
 		{
-			Out.WriteLine("{1}: A player has quit the game.  Player:{0}", e.Player, _seat);
+			Out.WriteLine("{0} has left the table and quit the game.", e.Player);
 		}
 		
 		#endregion

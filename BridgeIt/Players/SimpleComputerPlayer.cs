@@ -21,7 +21,7 @@ using BridgeIt.Core;
 using BridgeIt.Tables;  //FIXME remove this by adding events to ITable
 using System.Linq;
 using System.Collections.Generic;
-
+using System.Diagnostics;
 
 namespace BridgeIt.Players
 {
@@ -63,7 +63,7 @@ namespace BridgeIt.Players
             if (_table == null)
                 throw new InvalidOperationException("You can't start until you sitting at a table");
 
-            Console.WriteLine("Simple Computer Player started by thread {0} @ {2} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
+            Debug.Print("Simple Computer Player started by thread {0} @ {2} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
             Thread = new Thread(Run) {IsBackground = true};
             Thread.Start();
             return Thread;
@@ -78,7 +78,7 @@ namespace BridgeIt.Players
             if (!Thread.IsAlive)
                 throw new InvalidOperationException("This player has not been stopped and cannot be started");
 
-            Console.WriteLine("SCP at seat {2} stopped by thread {0} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
+            Debug.Print("SCP at seat {2} stopped by thread {0} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
             _stop = true;
         }
 
@@ -101,7 +101,7 @@ namespace BridgeIt.Players
 
         private void Run ()
         {
-            Console.WriteLine("SCP at seat {2} has entered the run loop on thread {0} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
+            Debug.Print("SCP at seat {2} has entered the run loop on thread {0} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
             while (!_stop)
             {
                 //Keep the time in DoSomeWork about 100 milleseconds or less for responsibveness
@@ -123,14 +123,14 @@ namespace BridgeIt.Players
                     if (_table.AllowingBidFrom(_mySeat))
                     {
                         Call call = GetBestCall();
-                        //Console.WriteLine("SCP at Seat {0} called: {1}", _mySeat, call);
+                        //Debug.Print("SCP at Seat {0} called: {1}", _mySeat, call);
                         try
                         {
                             _table.MakeCall(this, call);
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine("Call failed for SCP at Seat {0}: {1}", _mySeat, ex);
+                            Debug.Print("Call failed for SCP at Seat {0}: {1}", _mySeat, ex);
                             //throw;
                         }
                         continue;  //DO NOT try to play a card after we have bid
@@ -139,14 +139,14 @@ namespace BridgeIt.Players
                     if (_table.AllowingCardFrom(_mySeat))
                     {
                         Card card = GetBestCard();
-                        //Console.WriteLine("SCP at Seat {0} played {1}", _mySeat, card);
+                        //Debug.Print("SCP at Seat {0} played {1}", _mySeat, card);
                         try
                         {
                             _table.PlayCard(this, card);
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
+                            Debug.Print("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
                             //throw;
                         }
                     }
@@ -156,20 +156,20 @@ namespace BridgeIt.Players
                     if (_table.AllowingCardFromDummyBy(_mySeat))
                     {
                         Card card = GetBestCard();
-                        //Console.WriteLine("SCP at Seat {0} played {1} For Dummy", _mySeat, card);
+                        //Debug.Print("SCP at Seat {0} played {1} For Dummy", _mySeat, card);
                         try
                         {
                             _table.PlayCard(this, card);
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
+                            Debug.Print("Play failed for SCP at Seat {0}: {1}", _mySeat, ex);
                             //throw;
                         }
                     }
                 }
             }
-            Console.WriteLine("SCP at seat {2} has left the run loop on thread {0} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
+            Debug.Print("SCP at seat {2} has left the run loop on thread {0} @ {1}", Thread.CurrentThread.ManagedThreadId, DateTime.Now, _mySeat);
             LeaveTable();
         }
 
@@ -177,7 +177,7 @@ namespace BridgeIt.Players
         {
              UnsubscribeToMessages(_table);
              _table.Quit(this);
-             //Console.WriteLine("SCP at Seat {0} quit the table", _mySeat);
+             //Debug.Print("SCP at Seat {0} quit the table", _mySeat);
              _table = null;
              _mySeat = Seat.None;
         }
@@ -265,7 +265,7 @@ namespace BridgeIt.Players
         //In real AI, I will update the game tree with info from these messages.
         void CardsHaveBeenDealt (object sender, EventArgs e)
         {
-            //Console.WriteLine("{1}: Cards have been dealt. Hand:{0}", ((Table)sender).GetHand(this).PrintFormat(), _mySeat);
+            //Debug.Print("{1}: Cards have been dealt. Hand:{0}", ((Table)sender).GetHand(this).PrintFormat(), _mySeat);
             //if (_mySeat == _table.Dealer) _timeToBid = true;
             _tableStateHasChanged = true;
         }
@@ -327,7 +327,7 @@ namespace BridgeIt.Players
 //            _timeToPlayForDummy = false;
             _tableStateHasChanged = true;
 
-            Console.WriteLine("\n\nGame Over!\n\n");
+            //Debug.Print("\n\nGame Over!\n\n");
         }
 
      
