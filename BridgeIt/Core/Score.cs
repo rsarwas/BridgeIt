@@ -165,7 +165,7 @@ namespace BridgeIt.Core
             sb.Append(string.Format("Declarers ({0}) made {1} trick{2}.  ",
                                         Declarer.GetSide(),TricksTaken,TricksTaken == 1 ? "" : "s"));
             sb.AppendLine(string.Format("Defenders ({0}) made {1} trick{2}.",
-                                        Declarer.GetSide().OtherSide()));
+                                        Declarer.GetSide().OtherSide(), TricksDefeated, TricksDefeated == 1 ? "" : "s"));
             if (MadeContract)
             {
                 if (TricksOverContract == 0)

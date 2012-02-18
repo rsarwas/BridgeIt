@@ -27,7 +27,19 @@ namespace BridgeIt.Core
 		private readonly List<Card> _cards;
 		private readonly List<Seat> _players;
 		private Seat _winner;
-			
+
+        public static Trick FromCards (Suit trump, Seat lead, IEnumerable<Card> cards)
+        {
+            Trick trick = new Trick(trump);
+            Seat player = lead;
+            foreach (var card in cards)
+            {
+                trick.AddCard(card, player);
+                player = player.GetNextSeat();
+            }
+            return trick;
+        }
+
 
 		public Trick(Suit trump)
 		{
