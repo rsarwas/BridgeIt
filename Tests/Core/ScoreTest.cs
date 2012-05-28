@@ -25,7 +25,7 @@ namespace Tests.Core
 	[TestFixture()]
 	public class ScoreTest
 	{
-        private static List<Trick> TestTricks (Trump trump, Seat declarer)
+        private static List<Trick> TestTricks (Suit trump, Seat declarer)
         {
             //D = declarer's team, d = defender's team
             var tricks = new List<Trick>(13);
@@ -66,11 +66,11 @@ namespace Tests.Core
         {
             Contract contract = new Contract(new Bid(3, Suit.Hearts), 0);
             List<Trick> tricks = TestTricks(Suit.Hearts, Seat.East);
-            Score score = Score(Seat.East, contract, tricks, Vulnerability.EastWest);;
-            int score1 = score.GetDeclarersGameScore();
-            int score2 = score.GetDeclarersBonusScore();
-            int score3 = score.GetDefendersScore();
-            bool game = score.DidDeclarerMakeGame;
+            Score score = new Score(Seat.East, contract, tricks, Vulnerability.EastWest);;
+            //int score1 = score.GetDeclarersGameScore();
+            //int score2 = score.GetDeclarersBonusScore();
+            //int score3 = score.GetDefendersScore();
+            //bool game = score.DidDeclarerMakeGame;
             score.ToString();
         }
 

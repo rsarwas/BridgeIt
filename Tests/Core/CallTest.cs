@@ -382,14 +382,14 @@ namespace Tests.Core
             calls = new List<Call> {bid1, bid2, dbl, redbl, pass, pass, bid3};
             Assert.AreEqual(calls.First(CallType.Bid, Suit.Clubs, Side.NorthSouth), null);
             Assert.AreEqual(calls.First(CallType.Bid, Suit.Hearts, Side.NorthSouth), null);
-            Assert.AreEqual(calls.First(CallType.Bid, Suit.Hearts, Side.WestEast).Bidder, bid2.Bidder);
+            Assert.AreEqual(calls.First(CallType.Bid, Suit.Hearts, Side.EastWest).Bidder, bid2.Bidder);
             Assert.AreEqual(calls.First(CallType.Bid, Suit.Spades, Side.NorthSouth).Bidder, bid1.Bidder);
             Assert.AreEqual(calls.First(CallType.Pass, Suit.Clubs, Side.NorthSouth).Bidder, pass.Bidder);
-            Assert.AreEqual(calls.First(CallType.Pass, Suit.Clubs, Side.WestEast), null);
+            Assert.AreEqual(calls.First(CallType.Pass, Suit.Clubs, Side.EastWest), null);
             Assert.AreEqual(calls.First(CallType.Double, Suit.Clubs, Side.NorthSouth).Bidder, dbl.Bidder);
-            Assert.AreEqual(calls.First(CallType.Double, Suit.Clubs, Side.WestEast), null);
+            Assert.AreEqual(calls.First(CallType.Double, Suit.Clubs, Side.EastWest), null);
             Assert.AreEqual(calls.First(CallType.Redouble, Suit.None, Side.NorthSouth).Bidder, redbl.Bidder);
-            Assert.AreEqual(calls.First(CallType.Redouble, Suit.None, Side.WestEast), null);
+            Assert.AreEqual(calls.First(CallType.Redouble, Suit.None, Side.EastWest), null);
         }
 
         [Test()]
@@ -456,7 +456,7 @@ namespace Tests.Core
             var redbl = new Call(Seat.North, CallType.Redouble);
             var bid1 = new Call(Seat.North, CallType.Bid, new Bid(1, Suit.Spades));
             var bid2 = new Call(Seat.East, CallType.Bid, new Bid(2, Suit.Hearts));
-            var bid3 = new Call(Seat.South, CallType.Bid, new Bid(3, Suit.Spades));
+            //var bid3 = new Call(Seat.South, CallType.Bid, new Bid(3, Suit.Spades));
 
             List<Call> calls = new List<Call> {};
             Assert.IsTrue(calls.IsCallLegal(pass));
